@@ -1,0 +1,15 @@
+{
+  "project": {
+    "id": "moa-moe-hybrid-chatbot",
+    "version": "1.0.0"
+  },
+  "workflow": {
+    "planningMode": "strict",
+    "validation": "required",
+    "traceability": "enabled"
+  },
+  "intel": {
+    "enabled": true,
+    "path": ".planning/codebase"
+  }
+}
