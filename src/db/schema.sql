@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS agent_memory (
   id           bigserial  PRIMARY KEY,
   content      text       NOT NULL,
   metadata     jsonb,     -- stores: dalc_score, rmoa_trace, halt_reason
-  embedding    vector(768),
+  embedding    vector(384),
   reward_score numeric    DEFAULT 0.0,
   created_at   timestamp  DEFAULT current_timestamp
 );

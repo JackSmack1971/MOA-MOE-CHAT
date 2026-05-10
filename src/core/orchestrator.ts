@@ -5,6 +5,8 @@ import { Verifier, VerifierVerdict } from '../services/Verifier';
 import { routerPrompt, proposerPrompt, aggregatorPrompt } from '../prompts';
 import { AgentNode } from './AgentNode';
 
+import { SemanticCache } from '../services/SemanticCache';
+
 /**
  * Orchestrator Service
  * traces: FR-01, FR-02, FR-04, FR-05, FR-07..12, ADR-001, ADR-006, ADR-011, PRD §6.1
@@ -18,6 +20,12 @@ export class Orchestrator {
    */
   public async execute(query: string, oracleType: VerifierVerdict['oracleType'] = 'LLM_ONLY'): Promise<string> {
     console.log(`[Orchestrator] Starting pipeline for query: "${query.substring(0, 50)}..."`);
+
+    // 0. Semantic Cache Lookup (ADR-008)
+    const cachedResponse = await SemanticCache.get(query);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
 
     // 1. Router Turn
     console.log('[Orchestrator] Role: Router');
@@ -126,9 +134,11 @@ export class Orchestrator {
         `The previous output failed verification with the following error: ${verdict.oracleOutput}\n\nPlease provide a corrected version.\n\nOriginal Request: ${query}`,
         0.7
       );
+      await SemanticCache.set(query, revisedOutput);
       return revisedOutput;
     }
 
+    await SemanticCache.set(query, lastAggregatorOutput);
     return lastAggregatorOutput;
   }
 }
