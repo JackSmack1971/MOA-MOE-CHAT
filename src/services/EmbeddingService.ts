@@ -91,4 +91,14 @@ export class EmbeddingService {
     }
     return res;
   }
+
+  /**
+   * Compute relevance score (cosine similarity) between text and a domain description
+   * traces: FRD-FR-24
+   */
+  public async computeRelevance(text: string, domainDescription: string): Promise<number> {
+    const textEmbedding = await this.embed(text);
+    const domainEmbedding = await this.embed(domainDescription);
+    return EmbeddingService.cosineSimilarity(textEmbedding, domainEmbedding);
+  }
 }
