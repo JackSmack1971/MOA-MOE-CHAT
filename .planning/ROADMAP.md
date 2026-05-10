@@ -33,3 +33,11 @@
 - [x] Full golden fixture regression suite run.
 - [x] Final performance benchmark and Success Metrics validation.
 - [x] Cut V1.0 tag.
+
+## Phase 7: V2 GoA Migration (Week 7)
+- [ ] Task 1: Agent Registry & Schema (`src/prompts/agent-registry.json`, `src/core/types.ts`).
+- [ ] Task 2: GraphEngine Service (Adjacency matrix, Source/Target partitioning).
+- [ ] Task 3: Orchestrator Refactor (Meta-LLM Selection, Peer-to-Peer Scoring).
+- [ ] Task 4: Bidirectional Message Passing & Pooling (Forward/Reverse passes, Max/Mean pooling).
+- [ ] Task 5: V2 Validation (Golden Regression, Efficiency Audit).
+

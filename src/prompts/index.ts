@@ -48,3 +48,4 @@ Proposer Response:
 
 User Query: {{query}}
 `;
+export * from './goa.prompt.ts';

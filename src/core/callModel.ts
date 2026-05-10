@@ -26,7 +26,7 @@ export async function callModel(
   prompt: string,
   temperature: number = 0.7,
   maxRetries: number = 2
-): Promise<string> {
+): Promise<{ content: string; usage: { prompt: number; completion: number; total: number } }> {
   const modelsToTry = [modelId, ...MODEL_FALLBACK_CHAIN.filter(m => m !== modelId)];
   
   for (const model of modelsToTry) {
@@ -52,9 +52,18 @@ export async function callModel(
         );
 
         const content = response.data.choices?.[0]?.message?.content;
+        const usage = response.data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+        
         if (!content) throw new Error('Empty response from model');
         
-        return content;
+        return { 
+          content, 
+          usage: { 
+            prompt: usage.prompt_tokens, 
+            completion: usage.completion_tokens, 
+            total: usage.total_tokens 
+          } 
+        };
       } catch (err: any) {
         attempts++;
         const status = err.response?.status;
@@ -74,3 +83,4 @@ export async function callModel(
 
   throw new Error('All models in fallback chain failed.');
 }
+

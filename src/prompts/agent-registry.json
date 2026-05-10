@@ -1,0 +1,34 @@
+[
+  {
+    "id": "inclusionai/ring-2.6-1t:free",
+    "name": "Selector (Ring 2.6)",
+    "domain": "generalist",
+    "description": "Meta-LLM optimized for graph node selection and task decomposition.",
+    "context_window": 131072,
+    "active_params": "1.0T"
+  },
+  {
+    "id": "qwen/qwen3-next-80b-a3b-instruct:free",
+    "name": "Qwen 3 Next (Logic)",
+    "domain": "logic",
+    "description": "High-performance logic model for complex reasoning and mathematical proofing.",
+    "context_window": 32768,
+    "active_params": "80B"
+  },
+  {
+    "id": "qwen/qwen3-coder:free",
+    "name": "Qwen 3 Coder (Extraction/Coding)",
+    "domain": "extraction",
+    "description": "Specialized in code generation, structured data extraction, and schema adherence.",
+    "context_window": 32768,
+    "active_params": "Coder-Sparse"
+  },
+  {
+    "id": "nvidia/nemotron-3-super-120b-a12b:free",
+    "name": "Nemotron 3 (Generalist)",
+    "domain": "generalist",
+    "description": "Robust all-rounder for synthesis, creative writing, and multi-turn consistency.",
+    "context_window": 4096,
+    "active_params": "120B"
+  }
+]

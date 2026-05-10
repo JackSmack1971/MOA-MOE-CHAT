@@ -23,12 +23,22 @@
 - [ ] **FR-12**: Full verdict telemetry (promptHash, oracleType, latency).
 
 ### M5: Security & Resilience
-- [ ] **FR-16**: CI credential detection (git-secrets/truffleHog).
-- [ ] **FR-20**: Pre-API semantic cache lookup (cosine ≥ 0.98).
-- [ ] **FR-21**: fetchWithBackoff (3 retries, jitter).
-- [ ] **FR-22**: Fallback chain (Nemotron → Gemma-4-31B → GPT-OSS-120B).
+- [x] **FR-16**: CI credential detection (git-secrets/truffleHog).
+- [x] **FR-20**: Pre-API semantic cache lookup (cosine ≥ 0.98).
+- [x] **FR-21**: fetchWithBackoff (3 retries, jitter).
+- [x] **FR-22**: Fallback chain (Nemotron → Gemma-4-31B → GPT-OSS-120B).
+
+### M6: V2 Graph-of-Agents (GoA)
+- [ ] **FR-23**: Subgraph extraction using Meta-LLM (`inclusionai/ring-2.6-1t:free`) with sampling budget $k=3$.
+- [ ] **FR-24**: Peer-to-peer relevance scoring with sparsity threshold $\tau = 0.05$.
+- [ ] **FR-25**: Adjacency matrix computation and Source/Target partitioning based on centrality.
+- [ ] **FR-26**: Bidirectional message passing (Forward: Source -> Target, Reverse: Target -> Source).
+- [ ] **FR-27**: Dynamic pooling supporting `GoA-Max` and `GoA-Mean` methods.
 
 ## Non-Functional Requirements
-- [ ] **NFR-01**: No secrets or PII in logs/DB.
-- [ ] **NFR-02**: Input whitelist sanitization.
-- [ ] **NFR-05**: DALC overhead ≤ 100ms.
+- [x] **NFR-01**: No secrets or PII in logs/DB.
+- [x] **NFR-02**: Input whitelist sanitization.
+- [x] **NFR-05**: DALC overhead ≤ 100ms.
+- [ ] **NFR-06**: V2 token consumption reduction ≥ 50% vs V1.
+- [ ] **NFR-07**: Graph orchestration latency overhead ≤ 500ms (excluding model inference).
+

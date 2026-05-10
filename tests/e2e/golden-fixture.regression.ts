@@ -9,14 +9,19 @@ import path from 'path';
  * Executes all 20 fixtures and reports pass/fail.
  */
 async function runRegression() {
-  logger.info('--- Phase 6: Golden Fixture Regression Gate ---');
+  logger.info('--- Phase 7: V2 GoA Migration Regression Gate ---');
   const orchestrator = new Orchestrator();
   
   const fixturePath = path.join(__dirname, '../../fixtures/golden-fixture-set.json');
   const fixtures = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
+
   let total = 0;
   let passed = 0;
+  
+  // V1 Baseline: ~4 models * (Prompt + Response) per turn
+  // Estimated V1 tokens per turn: ~2000 tokens
+  const V1_AVG_TOKENS = 2000; 
 
   for (const fixture of fixtures) {
     total++;
@@ -25,7 +30,6 @@ async function runRegression() {
     try {
       const start = Date.now();
       
-      // Map fixture oracleType to Orchestrator oracleType
       let oracleType: any = 'LLM_ONLY';
       if (fixture.oracleType === 'mathjs') oracleType = 'SYMBOLIC_EVAL';
       if (fixture.oracleType === 'PoT') oracleType = 'POT_EXECUTION';
@@ -41,15 +45,16 @@ async function runRegression() {
   }
 
   const passRate = (passed / total) * 100;
-  logger.info({ total, passed, passRate: `${passRate}%` }, 'Regression Summary');
+  logger.info({ total, passed, passRate: `${passRate}%` }, 'V2 Regression Summary');
 
   if (passRate === 100) {
-    logger.info('GATE STATUS: GREEN (Ready for V1 Tag)');
+    logger.info('GATE STATUS: GREEN (V2 Migration Verified)');
   } else {
-    logger.error('GATE STATUS: RED (Fix regressions before release)');
+    logger.error('GATE STATUS: RED (Fix regressions before final V2 tag)');
     process.exit(1);
   }
 }
+
 
 runRegression().catch(err => {
   logger.error(err);
