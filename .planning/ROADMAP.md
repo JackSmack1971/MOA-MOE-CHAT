@@ -35,9 +35,14 @@
 - [x] Cut V1.0 tag.
 
 ## Phase 7: V2 GoA Migration (Week 7)
-- [ ] Task 1: Agent Registry & Schema (`src/prompts/agent-registry.json`, `src/core/types.ts`).
-- [ ] Task 2: GraphEngine Service (Adjacency matrix, Source/Target partitioning).
-- [ ] Task 3: Orchestrator Refactor (Meta-LLM Selection, Peer-to-Peer Scoring).
-- [ ] Task 4: Bidirectional Message Passing & Pooling (Forward/Reverse passes, Max/Mean pooling).
-- [ ] Task 5: V2 Validation (Golden Regression, Efficiency Audit).
+- [x] Task 1: Agent Registry & Schema (`src/prompts/agent-registry.json`, `src/core/types.ts`).
+- [x] Task 2: GraphEngine Service (Adjacency matrix, Source/Target partitioning).
+- [x] Task 3: Orchestrator Refactor (Meta-LLM Selection, Peer-to-Peer Scoring).
+- [x] Task 4: Bidirectional Message Passing & Pooling (Forward/Reverse passes, Max/Mean pooling).
+- [x] Task 5: V2 Validation (Golden Regression, Efficiency Audit).
+
+## Backlog
+- [ ] 999.1: Phase 8 - Symbolic-MoE Prototype (Dynamic edge construction via SymbolicSerializer).
+- [ ] 999.2: Scale GoA to $k=10$ expert models with hierarchical clustering.
+- [ ] 999.3: Implement distributed cross-agent memory pooling (D-CAMP).
 
