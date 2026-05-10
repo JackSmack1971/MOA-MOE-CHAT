@@ -68,4 +68,26 @@ export class EmbeddingService {
     }
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
+
+  /**
+   * Compute L2 norm of a vector
+   */
+  public static l2Norm(v: number[]): number {
+    let sum = 0;
+    for (let i = 0; i < v.length; i++) {
+      sum += v[i]! * v[i]!;
+    }
+    return Math.sqrt(sum);
+  }
+
+  /**
+   * Subtract two vectors
+   */
+  public static subtract(a: number[], b: number[]): number[] {
+    const res: number[] = [];
+    for (let i = 0; i < a.length; i++) {
+      res.push(a[i]! - b[i]!);
+    }
+    return res;
+  }
 }
