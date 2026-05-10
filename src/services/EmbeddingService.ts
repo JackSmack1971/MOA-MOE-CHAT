@@ -1,4 +1,5 @@
 import { pipeline, FeatureExtractionPipeline } from '@huggingface/transformers';
+import { logger } from '../core/logger';
 
 /**
  * EmbeddingService Singleton
@@ -28,11 +29,11 @@ export class EmbeddingService {
    */
   public async init(): Promise<void> {
     if (!this.pipeline) {
-      console.log(`[EmbeddingService] Initializing ${this.modelName}...`);
+      logger.info({ model: this.modelName }, '[EmbeddingService] Initializing');
       this.pipeline = await pipeline('feature-extraction', this.modelName, {
         quantized: true, // q8 by default in transformers.js
       });
-      console.log(`[EmbeddingService] ${this.modelName} initialized.`);
+      logger.info({ model: this.modelName }, '[EmbeddingService] Initialized');
     }
   }
 

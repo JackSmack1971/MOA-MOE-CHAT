@@ -7,6 +7,8 @@ import { AgentNode } from './AgentNode';
 
 import { SemanticCache } from '../services/SemanticCache';
 
+import { logger } from './logger';
+
 /**
  * Orchestrator Service
  * traces: FR-01, FR-02, FR-04, FR-05, FR-07..12, ADR-001, ADR-006, ADR-011, PRD §6.1
@@ -19,7 +21,7 @@ export class Orchestrator {
    * traces: Objective 1.1, SM-1..4
    */
   public async execute(query: string, oracleType: VerifierVerdict['oracleType'] = 'LLM_ONLY'): Promise<string> {
-    console.log(`[Orchestrator] Starting pipeline for query: "${query.substring(0, 50)}..."`);
+    logger.info({ query: query.substring(0, 50) }, '[Orchestrator] Starting pipeline');
 
     // 0. Semantic Cache Lookup (ADR-008)
     const cachedResponse = await SemanticCache.get(query);
@@ -28,7 +30,7 @@ export class Orchestrator {
     }
 
     // 1. Router Turn
-    console.log('[Orchestrator] Role: Router');
+    logger.info('[Orchestrator] Role: Router');
     const routerPlan = await callModel(
       Orchestrator.MODEL_ID,
       routerPrompt.replace('{{query}}', query),
@@ -42,10 +44,10 @@ export class Orchestrator {
 
     // RMoA Adaptive Halting Loop (ADR-006)
     while (true) {
-      console.log(`\n--- Step ${currentStep} ---`);
+      logger.info({ currentStep }, '[Orchestrator] Starting iteration');
 
       // 2. Proposer Turn (with DALC integration)
-      console.log(`[Orchestrator] Role: Proposer (Step ${currentStep})`);
+      logger.info({ currentStep }, '[Orchestrator] Role: Proposer');
       const proposerNode: AgentNode = {
         id: `proposer-${currentStep}`,
         modelIdentifier: Orchestrator.MODEL_ID,
@@ -81,7 +83,7 @@ export class Orchestrator {
       );
 
       // 4. Aggregator Turn (Synthesis)
-      console.log(`[Orchestrator] Role: Aggregator (Step ${currentStep})`);
+      logger.info({ currentStep }, '[Orchestrator] Role: Aggregator');
       lastAggregatorOutput = await callModel(
         Orchestrator.MODEL_ID,
         aggregatorPrompt
@@ -99,10 +101,10 @@ export class Orchestrator {
         currentStep
       );
 
-      console.log(`[Orchestrator] RMoA Delta: ${haltDecision.delta.toFixed(4)} | Reason: ${haltDecision.haltReason}`);
+      logger.info({ delta: haltDecision.delta.toFixed(4), reason: haltDecision.haltReason }, '[Orchestrator] RMoA Check');
 
       if (haltDecision.shouldHalt) {
-        console.log(`[Orchestrator] Halting triggered: ${haltDecision.haltReason}`);
+        logger.info({ reason: haltDecision.haltReason }, '[Orchestrator] Halting triggered');
         break;
       }
 
@@ -111,7 +113,7 @@ export class Orchestrator {
     }
 
     // 6. Verifier Interception (FR-10, ADR-011)
-    console.log('[Orchestrator] Role: Verifier Interception');
+    logger.info('[Orchestrator] Role: Verifier Interception');
     let verdict: VerifierVerdict;
     
     // Minimal heuristic to find code/math in output for oracle dispatch
@@ -126,9 +128,9 @@ export class Orchestrator {
     }
 
     if (verdict.verdict === 'FAIL') {
-      console.warn(`[Orchestrator] Verifier FAIL (${verdict.oracleType}): ${verdict.oracleOutput}`);
+      logger.warn({ oracle: verdict.oracleType, error: verdict.oracleOutput }, '[Orchestrator] Verifier FAIL');
       // FR-11: Trigger one revision if failed
-      console.log('[Orchestrator] Role: Proposer (Revision)');
+      logger.info('[Orchestrator] Role: Proposer (Revision)');
       const revisedOutput = await callModel(
         Orchestrator.MODEL_ID,
         `The previous output failed verification with the following error: ${verdict.oracleOutput}\n\nPlease provide a corrected version.\n\nOriginal Request: ${query}`,

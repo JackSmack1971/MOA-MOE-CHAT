@@ -1,6 +1,6 @@
 /**
  * AgentNode Interface
- * traces: FRD-FR-01, PRD §7.3, ADR-001, ADR-007
+ * traces: FRD-FR-01, FRD-FR-03, PRD §7.3, ADR-001, ADR-007
  */
 export interface AgentNode {
   /** Unique identifier for the agent role (e.g., 'proposer', 'aggregator') */

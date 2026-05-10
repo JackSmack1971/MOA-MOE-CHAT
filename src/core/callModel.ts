@@ -15,6 +15,8 @@ const MODEL_FALLBACK_CHAIN = [
   'meta-llama/llama-3.1-8b-instruct:free'
 ];
 
+import { logger } from './logger';
+
 /**
  * Standardized model caller with fallback and retry logic
  * traces: FR-12, ADR-012, PRD §6.1
@@ -56,10 +58,10 @@ export async function callModel(
       } catch (err: any) {
         attempts++;
         const status = err.response?.status;
-        console.warn(`[callModel] Error with ${model} (Attempt ${attempts}/${maxRetries+1}): ${err.message}`);
+        logger.warn({ model, attempt: attempts, error: err.message }, '[callModel] API Error');
         
         if (attempts > maxRetries) {
-          console.warn(`[callModel] Model ${model} failed after ${attempts} attempts. Trying next in chain...`);
+          logger.warn({ model, attempts }, '[callModel] Model failed after retries. Trying next in chain.');
           break; // Try next model
         }
 

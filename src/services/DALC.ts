@@ -11,9 +11,11 @@ export interface DALCResult {
   finalOutput: string;
 }
 
+import { logger } from '../core/logger';
+
 /**
  * Diversity-Aware Latent Consensus (DALC) Service
- * traces: FR-04, FR-05, ADR-005, PRD §7.1
+ * traces: FR-04, FR-05, SM-7, ADR-005, PRD §7.1
  * Enforces output diversity between Proposer and Router Plan.
  */
 export class DALC {
@@ -59,10 +61,10 @@ export class DALC {
 
       attempts++;
       if (attempts <= this.MAX_REGENERATIONS) {
-        console.log(`[DALC] Collapse detected (sim=${similarity.toFixed(4)}). Retrying attempt ${attempts}...`);
+        logger.info({ similarity: similarity.toFixed(4), attempt: attempts }, '[DALC] Collapse detected. Retrying...');
         currentOutput = await callProposer(this.ORTHOGONALITY_DIRECTIVE);
       } else {
-        console.warn(`[DALC] Collapse UNRESOLVED after ${this.MAX_REGENERATIONS} attempts (sim=${similarity.toFixed(4)}).`);
+        logger.warn({ similarity: similarity.toFixed(4), max_attempts: this.MAX_REGENERATIONS }, '[DALC] Collapse UNRESOLVED');
         return {
           similarity,
           status: 'COLLAPSE_UNRESOLVED',

@@ -1,9 +1,10 @@
 import { DbService } from './DbService';
 import { EmbeddingService } from './EmbeddingService';
+import { logger } from '../core/logger';
 
 /**
  * Semantic Cache Service
- * traces: SM-4, ADR-008, PRD §11.1
+ * traces: FR-06, SM-4, ADR-008, PRD §11.1
  * Provides O(1) retrieval for semantically similar intents.
  */
 export class SemanticCache {
@@ -23,13 +24,13 @@ export class SemanticCache {
     if (hits.length > 0 && hits[0]!.metadata?.type === 'cache') {
       const similarity = hits[0]!.similarity;
       if (similarity >= this.THRESHOLD) {
-        console.log(`[SemanticCache] HIT (sim=${similarity.toFixed(4)})`);
+        logger.info({ similarity: similarity.toFixed(4) }, '[SemanticCache] HIT');
         return hits[0]!.metadata.response;
       } else {
-        console.log(`[SemanticCache] MISS (best_sim=${similarity.toFixed(4)})`);
+        logger.info({ best_sim: similarity.toFixed(4) }, '[SemanticCache] MISS (below threshold)');
       }
     } else {
-      console.log('[SemanticCache] MISS (no hits)');
+      logger.info('[SemanticCache] MISS (no hits)');
     }
     return null;
   }
@@ -49,6 +50,6 @@ export class SemanticCache {
       response: response,
       timestamp: new Date().toISOString()
     });
-    console.log('[SemanticCache] Response cached.');
+    logger.info('[SemanticCache] Response cached');
   }
 }
