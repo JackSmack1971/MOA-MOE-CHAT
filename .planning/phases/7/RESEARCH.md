@@ -44,3 +44,14 @@ Based on OpenRouter Free Tier:
 ## Verification Strategy
 - **Success Metrics**: 60% token reduction (from fewer nodes than V1's 4-node loop + reduced synthesis complexity).
 - **Regression**: 100% pass on Golden Fixture Set.
+
+## Model Tier Constraints
+> [!IMPORTANT]
+> **Hard Constraint**: Only OpenRouter `:free` models are permitted for all roles (Selector, Logic, Extraction, Generalist). This ensures zero operational cost and leverages high-context free endpoints for research-scale GoA experimentation.
+
+### Verified Free Tier Expert Nodes (V2)
+- **Selector**: `inclusionai/ring-2.6-1t:free`
+- **Logic**: `qwen/qwen3-next-80b-a3b-instruct:free`
+- **Coding/Extraction**: `qwen/qwen3-coder:free`
+- **Synthesis**: `nvidia/nemotron-3-super-120b-a12b:free`
+- **Fallbacks**: `google/gemma-2-27b-it:free`, `meta-llama/llama-3.1-8b-instruct:free`

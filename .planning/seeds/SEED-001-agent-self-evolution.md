@@ -1,7 +1,7 @@
 # Seed: Agent Self-Evolution (GRPO Feedback Loop)
 
 ## Objective
-Enable the Graph-of-Agents to self-optimize by using GRPO (Group Relative Policy Optimization) scores stored in `agent_memory` to dynamically adjust model temperatures and sparsity thresholds per domain.
+Enable the Graph-of-Agents to self-optimize (using `:free` models only) by using GRPO (Group Relative Policy Optimization) scores stored in `agent_memory` to dynamically adjust model temperatures and sparsity thresholds per domain.
 
 ## Trigger Conditions
 - Total memory entries > 500.
