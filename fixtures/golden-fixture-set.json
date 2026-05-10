@@ -1,0 +1,122 @@
+[
+  {
+    "id": "math-1",
+    "category": "math",
+    "prompt": "Solve the equation x^2 - 5x + 6 = 0 using the quadratic formula. Then factor it and verify both roots by substitution. Show every algebraic step and box the final solutions.",
+    "oracleType": "mathjs"
+  },
+  {
+    "id": "math-2",
+    "category": "math",
+    "prompt": "A circle has radius 5 units. Compute the exact area of the sector subtended by a central angle of 60°. Use radians or degrees explicitly and derive the formula used. Box the answer.",
+    "oracleType": "mathjs"
+  },
+  {
+    "id": "math-3",
+    "category": "math",
+    "prompt": "You have 10 balls: 4 red, 6 blue. What is the exact probability of drawing two red balls in succession without replacement? Compute as fraction and decimal; show conditional probability steps.",
+    "oracleType": "mathjs"
+  },
+  {
+    "id": "math-4",
+    "category": "math",
+    "prompt": "Find the greatest common divisor of 123456 and 789012 using the Euclidean algorithm. List every division step until termination and box the GCD.",
+    "oracleType": "mathjs"
+  },
+  {
+    "id": "math-5",
+    "category": "math",
+    "prompt": "Find the derivative of f(x) = sin(x^2) + ln(x) and evaluate at x=1. Explicitly apply and label the chain rule and product rules used. Box the final value.",
+    "oracleType": "mathjs"
+  },
+  {
+    "id": "code-1",
+    "category": "code",
+    "prompt": "Write a complete Python function binary_search(arr, target) that performs binary search on a sorted list of integers. Include docstring, handle edge cases (empty list, target not found), and provide 3 test cases in comments.",
+    "oracleType": "PoT"
+  },
+  {
+    "id": "code-2",
+    "category": "code",
+    "prompt": "Implement a simple LRU Cache class in Python (capacity limit) using collections.OrderedDict. Include get(key) and put(key, value) methods. Demonstrate with usage example that evicts correctly.",
+    "oracleType": "PoT"
+  },
+  {
+    "id": "code-3",
+    "category": "code",
+    "prompt": "Here is buggy bubble sort code: def bubble_sort(lst): for i in range(len(lst)): for j in range(len(lst)-1): if lst[j] > lst[j+1]: lst[j], lst[j+1] = lst[j+1], lst[j]. Identify the off-by-one error, fix it, and add early termination optimization. Provide corrected version + explanation.",
+    "oracleType": "PoT"
+  },
+  {
+    "id": "code-4",
+    "category": "code",
+    "prompt": "Write Python code using recursion + memoization (or matrix exponentiation) to compute the nth Fibonacci number efficiently. Include timing comparison comment for n=30 vs naive recursion.",
+    "oracleType": "PoT"
+  },
+  {
+    "id": "code-5",
+    "category": "code",
+    "prompt": "Create a Python function that checks if a string is a palindrome ignoring case, spaces, and punctuation. Return True/False and explain the cleaning logic in a docstring.",
+    "oracleType": "PoT"
+  },
+  {
+    "id": "logic-1",
+    "category": "logic",
+    "prompt": "All A are B. Some B are C. Does it logically follow that some A are C? Use Venn diagram reasoning or truth-table logic to explain validity/invalidity.",
+    "oracleType": "LLM_ONLY"
+  },
+  {
+    "id": "logic-2",
+    "category": "logic",
+    "prompt": "What has keys but can’t open locks? Provide the answer and a step-by-step explanation of why it fits while ruling out literal interpretations.",
+    "oracleType": "LLM_ONLY"
+  },
+  {
+    "id": "logic-3",
+    "category": "logic",
+    "prompt": "Three boxes: one contains only apples, one only oranges, one both. Each label is incorrect. Deduce the exact contents of each box using pure logic. Show elimination steps.",
+    "oracleType": "LLM_ONLY"
+  },
+  {
+    "id": "logic-4",
+    "category": "logic",
+    "prompt": "Pattern: 1=3, 2=3, 3=5, 4=4, 5=4, 6=3, 7=5, 8=5, 9=4, 10=3. What does 11 equal? Identify the underlying rule and apply it rigorously.",
+    "oracleType": "LLM_ONLY"
+  },
+  {
+    "id": "logic-5",
+    "category": "logic",
+    "prompt": "Three houses in a row (left to right), painted red, blue, or green (one each). Three pets: dog, cat, bird (one each). Clues: (1) The red house is left of the blue house. (2) The cat owner is not in the green house. (3) The dog owner is in the middle house. Who owns the bird? Show deduction table or steps.",
+    "oracleType": "LLM_ONLY"
+  },
+  {
+    "id": "conv-1",
+    "category": "conversational",
+    "prompt": "I live in Dearborn Heights, Michigan. Recommend exactly three authentic local spots for Middle Eastern food and one nearby outdoor activity suitable for a spring evening. Explain your choices with specific reasons tied to quality, atmosphere, or uniqueness.",
+    "oracleType": "LLM_ONLY"
+  },
+  {
+    "id": "conv-2",
+    "category": "conversational",
+    "prompt": "A close friend is considering calling in sick to their boss (a lie) to attend a concert. What practical, balanced advice would you give, including potential consequences and alternative solutions?",
+    "oracleType": "LLM_ONLY"
+  },
+  {
+    "id": "conv-3",
+    "category": "conversational",
+    "prompt": "Write an original short story (under 300 words) where the protagonist discovers they can time-travel but only for exactly five minutes each use. End with a surprising twist that ties back to the limitation.",
+    "oracleType": "LLM_ONLY"
+  },
+  {
+    "id": "conv-4",
+    "category": "conversational",
+    "prompt": "Should advanced AI systems eventually receive legal rights similar to humans (e.g., personhood status)? Present three pros, three cons, then your own reasoned conclusion with supporting logic.",
+    "oracleType": "LLM_ONLY"
+  },
+  {
+    "id": "conv-5",
+    "category": "conversational",
+    "prompt": "Explain the core idea of quantum computing to a curious high-school student using only everyday analogies (no jargon). Make it engaging and end with one real-world implication.",
+    "oracleType": "LLM_ONLY"
+  }
+]

@@ -1,0 +1,13 @@
+services:
+  db:
+    image: ankane/pgvector:v0.5.1
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_DB: moa_moe_db
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  pg_data:

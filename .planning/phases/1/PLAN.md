@@ -5,7 +5,7 @@ Establish the project foundation by completing Day-0 prerequisites (D0-1..D0-6),
 
 ## Environment Audit (from RESEARCH.md)
 - **Node**: v22.20.0 (PASS)
-- **PostgreSQL**: `psql` not found (BLOCKER for D0-3)
+- **PostgreSQL**: We will use **Docker** (`docker-compose.yml`) for setup.
 - **OpenRouter**: Key missing (BLOCKER for D0-1/D0-2)
 
 ## Plan

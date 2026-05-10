@@ -1,0 +1,24 @@
+# Phase 1: Foundation Tasks
+
+- [x] 1. Project Initialization
+    - [x] `npm init -y`
+    - [x] Install dependencies: `zod`, `pino`, `pg`, `pgvector`, `@openrouter/agent`, `mathjs`, `@huggingface/transformers`, `dotenv-vault`
+    - [x] Install dev dependencies: `typescript`, `vitest`, `ts-node`, `@types/node`, `@types/pg`
+    - [x] Initialize `tsconfig.json`
+- [ ] 2. Infrastructure Setup
+    - [x] Create `docker-compose.yml` for PostgreSQL 16 + pgvector
+    - [x] Create `.env.example`
+- [x] 3. Directory Structure
+    - [x] Create `src/core`, `src/services`, `src/oracles`, `src/db`, `src/memory`, `src/prompts`, `src/types`, `src/utils`
+    - [x] Create `fixtures`, `tests/unit`, `tests/integration`, `tests/e2e`, `scripts`
+- [x] 4. Core Components
+    - [x] Implement `src/core/AgentNode.ts`
+    - [x] Implement `src/services/EmbeddingService.ts`
+    - [x] Seed `fixtures/golden-fixture-set.json`
+- [x] 5. Day-0 Validation (D0-1..D0-6)
+    - [x] D0-1: Confirm OpenRouter deposit (Manual/Confirmed)
+    - [x] D0-2: Implement `scripts/d0-verify-models.ts` and verify endpoints
+    - [x] D0-3: Start Docker and verify DB connectivity (Success)
+    - [x] D0-4: Benchmark EmbeddingService (Success with all-MiniLM-L6-v2)
+    - [x] D0-5: Setup pre-commit scans
+    - [x] D0-6: Calibrate DALC threshold (Mean similarity 0.9330, Threshold 0.85)

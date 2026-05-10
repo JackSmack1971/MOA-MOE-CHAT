@@ -1,10 +1,10 @@
 # Project State
 
-## Current Phase: Phase 1 (Foundation)
-**Status**: Initializing project context and Day-0 prerequisites.
+## Current Phase: Phase 2 (Core Pipeline)
+**Status**: Foundation complete; implementing orchestrator loop.
 
 ## Milestones
-- [ ] Phase 1: Foundation
+- [x] Phase 1: Foundation
 - [ ] Phase 2: Core Pipeline
 - [ ] Phase 3: Halting & Verification
 - [ ] Phase 4: Persistence & Resilience
@@ -12,9 +12,10 @@
 - [ ] Phase 6: Validation & V1 Tag
 
 ## Recent Changes
-- Initialized `.planning` directory.
-- Mapped codebase from architectural artifacts.
-- Created `PROJECT.md`, `REQUIREMENTS.md`, and `ROADMAP.md`.
+- Completed Phase 1: Foundation.
+- Passed all Day-0 gates (D0-1..D0-6).
+- Deployed PostgreSQL + pgvector and verified Model/Embedding performance.
+- Seeded Golden Fixture set.
 
 ## Active Context
 - Focus: Completing Day-0 (D0-1..D0-6) gates.

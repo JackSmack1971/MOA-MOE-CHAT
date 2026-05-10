@@ -1,0 +1,33 @@
+{
+  "name": "moa-moe-chat",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "test": "vitest",
+    "test:golden": "vitest run --grep golden",
+    "db:migrate": "ts-node scripts/migrate.ts",
+    "d0-verify": "ts-node scripts/d0-verify-models.ts",
+    "benchmark:golden": "ts-node scripts/benchmark.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "@openrouter/agent": "^0.5.0",
+    "dotenv-vault": "^1.27.0",
+    "mathjs": "^15.2.0",
+    "pg": "^8.20.0",
+    "pgvector": "^0.2.1",
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
+  }
+}
