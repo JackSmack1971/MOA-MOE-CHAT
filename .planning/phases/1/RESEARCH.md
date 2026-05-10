@@ -5,7 +5,7 @@
 - **npm**: 10.9.3
 - **Git**: 2.53.0
 - **PostgreSQL**: `psql` command not found. Need to verify if PostgreSQL 16 + pgvector is installed or if a containerized version will be used.
-- **OpenRouter**: Connectivity test pending. No `.env` file detected.
+- **OpenRouter**: Connectivity test PASSED. `.env` file configured.
 
 ## Day-0 Prerequisites Analysis
 ### D0-1: OpenRouter Deposit
