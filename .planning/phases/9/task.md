@@ -1,0 +1,21 @@
+# Phase 9: Local Web UI Tasks
+
+- [ ] 1. Frontend Scaffolding
+    - [ ] Svelte 5 + Static Adapter setup
+    - [ ] Design tokens (Glassmorphism, Dark Mode)
+- [ ] 2. D3 Graph Component
+    - [ ] Force-directed layout for experts
+    - [ ] Live pulse animation on active nodes
+- [ ] 3. SSE Backend Refactor
+    - [ ] `callModel.ts` streaming support
+    - [ ] `Orchestrator.executeStreaming` implementation
+    - [ ] Express SSE endpoint (`/api/chat`)
+- [ ] 4. Sidecar Orchestration
+    - [ ] `src/index.ts` launcher (Postgres child process + server)
+    - [ ] SIGTERM/SIGINT graceful shutdown logic
+- [ ] 5. SEA Packaging
+    - [ ] Asset bundling script
+    - [ ] Platform-specific binary compilation
+- [ ] 6. Verification
+    - [ ] Memory footprint check (< 300MB total)
+    - [ ] E2E browser launch verification

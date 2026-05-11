@@ -41,6 +41,18 @@
 - [x] Task 4: Bidirectional Message Passing & Pooling (Forward/Reverse passes, Max/Mean pooling).
 - [x] Task 5: V2 Validation (Golden Regression, Efficiency Audit).
 
+## Phase 8: V3 Symbolic-MoE Prototype (Week 8)
+- [x] Task 1: Skill Registry & Taxonomy.
+- [x] Task 2: SymbolicSerializer (Skill-Vectorization).
+- [x] Task 3: EdgeConstructor (Proficiency-Weighted Adjacency).
+- [x] Task 4: V3 Orchestration (Skill Extraction pass).
+
+## Phase 9: Local Web UI & SSE Orchestration (Week 9)
+- [ ] Task 1: Svelte 5 Frontend Scaffold (Glassmorphism, D3 Graph).
+- [ ] Task 2: Express Server & SSE Token Streaming.
+- [ ] Task 3: Single Executable Application (SEA) Packaging.
+- [ ] Task 4: Postgres Sidecar Orchestration (Child Process).
+
 ## Backlog
 - [ ] 999.1: Phase 8 - Symbolic-MoE Prototype (Dynamic edge construction via SymbolicSerializer).
 - [ ] 999.2: Scale GoA to $k=10$ expert models with hierarchical clustering.
