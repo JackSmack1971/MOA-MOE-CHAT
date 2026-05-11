@@ -5,15 +5,15 @@
 
   let query = $state('');
   let messages = $state([]);
-  let status = $state('READY');
+  let status = $state('IDLE');
   let skills = $state('');
   let usage = $state({ prompt: 0, completion: 0, total: 0 });
   let graphData = $state({ nodes: [], adjacency: [] });
 
   async function sendChat() {
     if (!query.trim()) return;
-    status = 'ORCHESTRATING...';
-    messages = [...messages, { role: 'user', content: query }];
+    status = 'ORCHESTRATING';
+    messages = [...messages, { role: 'user', content: query, timestamp: new Date().toLocaleTimeString() }];
     const currentQuery = query;
     query = '';
 
@@ -21,7 +21,7 @@
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
 
-    let assistantMsg = { role: 'assistant', content: '' };
+    let assistantMsg = { role: 'assistant', content: '', timestamp: new Date().toLocaleTimeString() };
     messages = [...messages, assistantMsg];
 
     while (true) {
@@ -53,73 +53,101 @@
   }
 </script>
 
-<main class="console">
-  <header class="glass-header">
+<svelte:head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
+</svelte:head>
+
+<main class="modular-deck">
+  <div class="grain"></div>
+  
+  <header class="top-nav">
     <div class="brand">
-      <h1>MOA-MOE<span>V3.0</span></h1>
-      <div class="pulse-indicator {status !== 'IDLE' ? 'active' : ''}"></div>
+      <div class="logo-box">MOA-MOE</div>
+      <div class="version">V3.0.0_STABLE</div>
     </div>
-    <div class="status-bar">
-      <span class="label">STATUS:</span> <span class="value">{status}</span>
-      <span class="divider">|</span>
-      <span class="label">SKILLS:</span> <span class="value">{skills || 'NONE'}</span>
+    <div class="global-status">
+      <span class="pulse {status !== 'IDLE' ? 'active' : ''}"></span>
+      <span class="label">CORE_STATE:</span>
+      <span class="value">{status}</span>
     </div>
   </header>
 
-  <div class="main-content">
-    <div class="chat-area">
-      <div class="chat-container">
+  <div class="grid-container">
+    <!-- QUADRANT 1: THE MIND (GRAPH) -->
+    <section class="quadrant q-graph">
+      <header>
+        <span class="tag">01</span>
+        <h2>AGENT_TOPOLOGY</h2>
+      </header>
+      <div class="content graph-wrapper">
+        <Graph nodes={graphData.nodes} adjacency={graphData.adjacency} />
+      </div>
+    </section>
+
+    <!-- QUADRANT 2: THE PULSE (TELEMETRY) -->
+    <section class="quadrant q-telemetry">
+      <header>
+        <span class="tag">02</span>
+        <h2>SYSTEM_TELEMETRY</h2>
+      </header>
+      <div class="content telemetry-deck">
+        <div class="stat-row">
+          <label>TOTAL_COMPUTE</label>
+          <div class="data-box">{usage.total} TOKENS</div>
+        </div>
+        <div class="stat-row">
+          <label>ACTIVE_SKILLS</label>
+          <div class="data-box skills">{skills || 'INITIALIZING...'}</div>
+        </div>
+        <div class="usage-bars">
+          <div class="bar-group">
+            <label>PROMPT</label>
+            <div class="bar-bg"><div class="bar prompt" style="width: {Math.min((usage.prompt / 5000) * 100, 100)}%"></div></div>
+          </div>
+          <div class="bar-group">
+            <label>COMPLETION</label>
+            <div class="bar-bg"><div class="bar comp" style="width: {Math.min((usage.completion / 5000) * 100, 100)}%"></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUADRANT 3 & 4: THE DATA STREAM (CHAT) -->
+    <section class="quadrant q-stream">
+      <header>
+        <span class="tag">03</span>
+        <h2>DATA_STREAM</h2>
+        <div class="controls">
+          <button class="btn-icon">CLEAR_LOG</button>
+        </div>
+      </header>
+      <div class="content stream-container">
         {#each messages as msg}
-          <div class="message {msg.role}">
-            <header>
-              <span class="sender">{msg.role === 'user' ? 'OPERATOR' : 'LOGIC_CORE'}</span>
-            </header>
-            <p>{msg.content}</p>
+          <div class="log-entry {msg.role}">
+            <div class="meta">
+              <span class="timestamp">[{msg.timestamp}]</span>
+              <span class="actor">{msg.role === 'user' ? 'OPERATOR' : 'LOGIC_CORE'}</span>
+            </div>
+            <div class="body">{msg.content}</div>
           </div>
         {/each}
         {#if messages.length === 0}
-          <div class="empty-state">
-            <p>AWAITING INPUT COMMAND...</p>
-          </div>
+          <div class="empty-log">AWAITING_INPUT_SEQUENCE...</div>
         {/if}
       </div>
 
-      <div class="input-area glass-input">
+      <div class="command-input">
+        <div class="input-prefix">&gt;</div>
         <input 
           bind:value={query} 
           onkeydown={(e) => e.key === 'Enter' && sendChat()} 
-          placeholder="ENTER QUERY COMMAND..." 
+          placeholder="ENTER_QUERY_COMMAND..."
         />
-        <button onclick={sendChat}>SEND</button>
+        <button class="submit-btn" onclick={sendChat}>EXEC_CMD</button>
       </div>
-    </div>
-
-    <aside class="sidebar">
-      <section class="graph-section">
-        <h3>AGENT_TOPOLOGY</h3>
-        <div class="graph-container">
-          <Graph nodes={graphData.nodes} adjacency={graphData.adjacency} />
-        </div>
-      </section>
-
-      <section class="telemetry-section">
-        <h3>TELEMETRY</h3>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span class="label">TOTAL_TOKENS</span>
-            <span class="value">{usage.total.toLocaleString()}</span>
-          </div>
-          <div class="stat-card">
-            <span class="label">PROMPT</span>
-            <span class="value">{usage.prompt.toLocaleString()}</span>
-          </div>
-          <div class="stat-card">
-            <span class="label">COMPLETION</span>
-            <span class="value">{usage.completion.toLocaleString()}</span>
-          </div>
-        </div>
-      </section>
-    </aside>
+    </section>
   </div>
 </main>
 
@@ -128,249 +156,282 @@
     --cyan: #00F2FF;
     --magenta: #FF00E5;
     --void: #0A0A0B;
-    --glass: rgba(30, 41, 59, 0.4);
-    --border: rgba(255, 255, 255, 0.1);
+    --surface: rgba(15, 15, 18, 0.8);
+    --border: rgba(255, 255, 255, 0.08);
+    --text-main: #E2E8F0;
+    --text-dim: #64748B;
   }
 
   :global(body) {
     background: var(--void);
-    color: #FFF;
-    font-family: 'Inter', sans-serif;
+    color: var(--text-main);
+    font-family: 'Outfit', sans-serif;
     margin: 0;
     overflow: hidden;
   }
 
-  .console {
+  .modular-deck {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    background: radial-gradient(circle at top right, rgba(0, 242, 255, 0.05), transparent);
+    position: relative;
   }
 
-  .glass-header {
-    background: var(--glass);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-    padding: 12px 24px;
+  /* GRAIN TEXTURE overlay */
+  .grain {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  .top-nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    z-index: 100;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(8px);
   }
 
-  .brand h1 {
-    margin: 0;
-    font-size: 18px;
-    letter-spacing: 0.1em;
-    font-weight: 800;
+  .brand {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 16px;
   }
 
-  .brand span {
-    font-size: 10px;
-    background: var(--magenta);
-    color: #000;
-    padding: 2px 4px;
-    border-radius: 2px;
-  }
-
-  .pulse-indicator {
-    width: 8px;
-    height: 8px;
-    background: #444;
-    border-radius: 50%;
-    margin-left: 12px;
-  }
-
-  .pulse-indicator.active {
+  .logo-box {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    padding: 4px 12px;
     background: var(--cyan);
-    box-shadow: 0 0 10px var(--cyan);
-    animation: pulse 1s infinite;
+    color: black;
   }
 
-  @keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.3; }
-    100% { opacity: 1; }
+  .version {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
   }
 
-  .status-bar {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-  }
-
-  .status-bar .label { color: #666; }
-  .status-bar .value { color: var(--cyan); }
-  .status-bar .divider { margin: 0 12px; color: #333; }
-
-  .main-content {
+  .global-status {
     display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .pulse {
+    width: 6px; height: 6px;
+    background: #333;
+    border-radius: 50%;
+  }
+
+  .pulse.active {
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+    animation: blink 0.5s infinite;
+  }
+
+  @keyframes blink {
+    0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; }
+  }
+
+  .grid-container {
     flex: 1;
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0;
     overflow: hidden;
   }
 
-  .chat-area {
-    flex: 1;
+  .quadrant {
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--border);
+    border: 0.5px solid var(--border);
+    background: var(--surface);
+    overflow: hidden;
   }
 
-  .chat-container {
-    flex: 1;
-    overflow-y: auto;
+  .quadrant header {
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--cyan);
+    font-weight: 800;
+    border: 1px solid var(--cyan);
+    padding: 0 4px;
+  }
+
+  h2 {
+    margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+  }
+
+  .q-graph { grid-row: span 1; }
+  .q-telemetry { grid-row: span 1; }
+  .q-stream { grid-column: 2; grid-row: 1 / span 2; }
+
+  .content { flex: 1; overflow: hidden; }
+
+  /* TELEMETRY STYLING */
+  .telemetry-deck {
     padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 24px;
   }
 
-  .message {
-    max-width: 85%;
-    padding: 16px;
-    border-radius: 8px;
-    font-size: 15px;
-    line-height: 1.6;
-    position: relative;
+  .stat-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
-  .message header {
-    margin-bottom: 8px;
+  .stat-row label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--text-dim);
+  }
+
+  .data-box {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--magenta);
+  }
+
+  .data-box.skills { font-size: 12px; color: var(--cyan); }
+
+  .usage-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .bar-group label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .bar-bg { height: 4px; background: #111; border-radius: 2px; overflow: hidden; }
+  .bar { height: 100%; transition: width 0.3s; }
+  .bar.prompt { background: var(--cyan); }
+  .bar.comp { background: var(--magenta); }
+
+  /* STREAM STYLING */
+  .q-stream { display: flex; flex-direction: column; }
+  
+  .stream-container {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: radial-gradient(circle at center, rgba(0,242,255,0.02) 0%, transparent 70%);
+  }
+
+  .log-entry {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .log-entry.user { color: var(--cyan); }
+  .log-entry.assistant { color: var(--text-main); }
+
+  .meta {
+    display: flex;
+    gap: 12px;
     font-size: 10px;
     font-weight: 800;
-    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+    opacity: 0.6;
   }
 
-  .message.user {
-    align-self: flex-end;
-    background: rgba(0, 242, 255, 0.05);
-    border: 1px solid rgba(0, 242, 255, 0.2);
-    border-left: 4px solid var(--cyan);
+  .actor {
+    padding: 0 6px;
+    background: currentColor;
+    color: black;
   }
 
-  .message.user .sender { color: var(--cyan); }
-
-  .message.assistant {
-    align-self: flex-start;
-    background: rgba(255, 0, 229, 0.05);
-    border: 1px solid rgba(255, 0, 229, 0.2);
-    border-left: 4px solid var(--magenta);
+  .body {
+    padding-left: 20px;
+    white-space: pre-wrap;
   }
 
-  .message.assistant .sender { color: var(--magenta); }
-
-  .empty-state {
+  .empty-log {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #333;
-    font-weight: 800;
-    letter-spacing: 0.2em;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #222;
+    letter-spacing: 0.3em;
   }
 
-  .input-area {
-    padding: 24px;
-    background: rgba(0, 0, 0, 0.3);
-    border-top: 1px solid var(--border);
+  /* COMMAND INPUT */
+  .command-input {
+    padding: 16px 24px;
+    background: #000;
+    border-top: 2px solid var(--border);
     display: flex;
+    align-items: center;
     gap: 12px;
+  }
+
+  .input-prefix {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--cyan);
+    font-weight: 800;
   }
 
   input {
     flex: 1;
-    background: #111;
-    border: 1px solid var(--border);
+    background: transparent;
+    border: none;
     color: white;
-    padding: 12px 16px;
-    border-radius: 4px;
-    font-family: inherit;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
     outline: none;
-    transition: border-color 0.2s;
   }
 
-  input:focus {
-    border-color: var(--cyan);
-  }
-
-  button {
+  .submit-btn {
     background: var(--cyan);
-    color: #000;
+    color: black;
     border: none;
-    padding: 0 24px;
-    border-radius: 4px;
-    font-weight: 800;
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    transition: filter 0.2s, transform 0.1s;
-  }
-
-  button:hover {
-    filter: brightness(1.1);
-  }
-
-  button:active {
-    transform: scale(0.98);
-  }
-
-  .sidebar {
-    width: 420px;
-    padding: 24px;
-    background: rgba(0, 0, 0, 0.2);
-    display: flex;
-    flex-direction: column;
-    gap: 32px;
-    overflow-y: auto;
-  }
-
-  h3 {
-    margin: 0 0 16px 0;
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    color: #666;
-    border-bottom: 1px solid #222;
-    padding-bottom: 8px;
-  }
-
-  .graph-container {
-    background: rgba(0,0,0,0.4);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    overflow: hidden;
-  }
-
-  .stats-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .stat-card {
-    background: var(--glass);
-    padding: 16px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .stat-card .label {
-    font-size: 10px;
-    font-weight: 700;
-    color: #666;
-  }
-
-  .stat-card .value {
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--magenta);
+    padding: 6px 16px;
     font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 11px;
+    cursor: pointer;
   }
+
+  .submit-btn:hover { filter: brightness(1.1); }
 </style>

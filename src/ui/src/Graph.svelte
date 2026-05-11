@@ -60,10 +60,10 @@
       .text(d => d.id.split('/').pop()) // Show model name only
       .attr("x", 16)
       .attr("y", 4)
-      .attr("fill", "#666")
+      .attr("fill", "var(--text-dim)")
       .attr("font-size", "10px")
       .attr("font-weight", "800")
-      .attr("font-family", "Inter, sans-serif");
+      .attr("font-family", "JetBrains Mono, monospace");
 
     nodeGroup.append("title").text(d => d.id);
 
