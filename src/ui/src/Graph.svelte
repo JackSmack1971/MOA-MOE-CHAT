@@ -13,8 +13,8 @@
   });
 
   function updateGraph() {
-    const width = 400;
-    const height = 400;
+    const width = 372; // Adjusted for sidebar width
+    const height = 300;
 
     const svgElement = d3.select(svg);
     svgElement.selectAll("*").remove();
@@ -22,7 +22,7 @@
     const links = [];
     adjacency.forEach((row, i) => {
       row.forEach((val, j) => {
-        if (val > 0.1) {
+        if (val > 0.05) { // Lowered threshold for "Mechanical Transparency"
           links.push({ source: nodes[i], target: nodes[j], value: val });
         }
       });
@@ -31,29 +31,41 @@
     const graphNodes = nodes.map(id => ({ id }));
 
     simulation = d3.forceSimulation(graphNodes)
-      .force("link", d3.forceLink(links).id(d => d.id).distance(100))
-      .force("charge", d3.forceManyBody().strength(-300))
+      .force("link", d3.forceLink(links).id(d => d.id).distance(80))
+      .force("charge", d3.forceManyBody().strength(-400))
       .force("center", d3.forceCenter(width / 2, height / 2));
 
     const link = svgElement.append("g")
       .selectAll("line")
       .data(links)
       .join("line")
-      .attr("stroke", "#00F2FF")
-      .attr("stroke-opacity", d => d.value)
-      .attr("stroke-width", d => d.value * 5);
+      .attr("stroke", "#00F2FF") // Command Cyan
+      .attr("stroke-opacity", d => Math.min(d.value + 0.2, 1))
+      .attr("stroke-width", d => d.value * 4);
 
-    const node = svgElement.append("g")
-      .selectAll("circle")
+    const nodeGroup = svgElement.append("g")
+      .selectAll("g")
       .data(graphNodes)
-      .join("circle")
-      .attr("r", 15)
-      .attr("fill", "#FF00E5")
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 2)
+      .join("g")
       .call(drag(simulation));
 
-    node.append("title").text(d => d.id);
+    nodeGroup.append("circle")
+      .attr("r", 12)
+      .attr("fill", "#FF00E5") // Logic Magenta
+      .attr("class", "expert-node")
+      .attr("stroke", "#000")
+      .attr("stroke-width", 2);
+
+    nodeGroup.append("text")
+      .text(d => d.id.split('/').pop()) // Show model name only
+      .attr("x", 16)
+      .attr("y", 4)
+      .attr("fill", "#666")
+      .attr("font-size", "10px")
+      .attr("font-weight", "800")
+      .attr("font-family", "Inter, sans-serif");
+
+    nodeGroup.append("title").text(d => d.id);
 
     simulation.on("tick", () => {
       link
@@ -62,9 +74,8 @@
         .attr("x2", d => d.target.x)
         .attr("y2", d => d.target.y);
 
-      node
-        .attr("cx", d => d.x)
-        .attr("cy", d => d.y);
+      nodeGroup
+        .attr("transform", d => `translate(${d.x},${d.y})`);
     });
   }
 
@@ -87,11 +98,18 @@
   }
 </script>
 
-<svg bind:this={svg} width="400" height="400"></svg>
+<svg bind:this={svg} width="372" height="300"></svg>
 
 <style>
   svg {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 12px;
+    background: transparent;
+  }
+  :global(.expert-node) {
+    animation: pulse-magenta 2s infinite ease-in-out;
+  }
+  @keyframes pulse-magenta {
+    0% { filter: drop-shadow(0 0 2px #FF00E5); }
+    50% { filter: drop-shadow(0 0 8px #FF00E5); }
+    100% { filter: drop-shadow(0 0 2px #FF00E5); }
   }
 </style>

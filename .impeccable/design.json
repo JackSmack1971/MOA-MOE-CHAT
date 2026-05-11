@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-10T23:44:25Z",
+  "title": "Design System: MoA-MoE Chatbot",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Command Cyan", "canonical": "#00F2FF" },
+      "secondary": { "role": "secondary", "displayName": "Logic Magenta", "canonical": "#FF00E5" },
+      "neutral-bg": { "role": "neutral", "displayName": "The Void", "canonical": "#0A0A0B" }
+    },
+    "motion": [
+      { "name": "instant", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Standard state transitions." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The primary action trigger.",
+      "html": "<button class=\"ds-btn-primary\">SEND COMMAND</button>",
+      "css": ".ds-btn-primary { background: #00F2FF; color: #000; padding: 10px 20px; border-radius: 4px; font-weight: 600; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; transition: filter 0.1s; } .ds-btn-primary:hover { filter: brightness(1.1); }"
+    },
+    {
+      "name": "Glass Container",
+      "kind": "card",
+      "description": "Standard surface for UI elements.",
+      "html": "<div class=\"ds-glass-box\">SYSTEM STATUS: READY</div>",
+      "css": ".ds-glass-box { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(12px); padding: 20px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #fff; font-family: Inter, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Orchestrator's Console",
+    "overview": "The MoA-MoE interface is a technical instrument designed for the transparent oversight of complex AI reasoning. It rejects the soft, 'friendly' aesthetics of consumer AI in favor of a high-precision, authoritative environment.",
+    "keyCharacteristics": ["Zero-Gravity Depth", "Neon Logic", "High-Density Data"],
+    "rules": [
+      { "name": "The Glass Rule", "body": "Surfaces must use backdrop-filter: blur(12px) and a semi-transparent background.", "section": "elevation" }
+    ],
+    "dos": ["Do use 1px borders for all container dividers", "Do maintain a strict dark theme"],
+    "donts": ["Don't use drop shadows", "Don't use generic SaaS cream dashboards"]
+  }
+}
