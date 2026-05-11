@@ -83,4 +83,68 @@ export async function callModel(
 
   throw new Error('All models in fallback chain failed.');
 }
+/**
+ * Streaming model caller for real-time UI updates
+ * traces: FR-12, V3 UI-SPEC
+ */
+export async function* callModelStream(
+  modelId: string,
+  prompt: string,
+  temperature: number = 0.7
+): AsyncGenerator<{ type: 'chunk' | 'usage'; data: any }> {
+  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://github.com/moa-moe-hybrid-chatbot',
+        'X-Title': 'MoA-MoE-Chatbot',
+      },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: temperature,
+        stream: true,
+      }),
+    });
+
+    if (!response.body) throw new Error('ReadableStream not supported');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const cleaned = line.replace(/^data: /, '').trim();
+        if (cleaned === '' || cleaned === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(cleaned);
+          const chunk = parsed.choices?.[0]?.delta?.content;
+          if (chunk) {
+            yield { type: 'chunk', data: chunk };
+          }
+          if (parsed.usage) {
+            yield { type: 'usage', data: parsed.usage };
+          }
+        } catch (err) {
+          // Ignore parse errors for incomplete chunks
+        }
+      }
+    }
+  } catch (err: any) {
+    logger.error({ error: err.message, modelId }, '[callModelStream] Streaming Error');
+    throw err;
+  }
+}
