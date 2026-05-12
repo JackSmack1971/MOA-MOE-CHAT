@@ -48,4 +48,6 @@ Proposer Response:
 
 User Query: {{query}}
 `;
-export * from './goa.prompt.ts';
+
+export * from './goa.prompt';
+export * from './skill-extractor.prompt';

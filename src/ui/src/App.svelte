@@ -13,7 +13,8 @@
   async function sendChat() {
     if (!query.trim()) return;
     status = 'ORCHESTRATING';
-    messages = [...messages, { role: 'user', content: query, timestamp: new Date().toLocaleTimeString() }];
+    const operatorTimestamp = new Date().toLocaleTimeString();
+    messages.push({ role: 'user', content: query, timestamp: operatorTimestamp });
     const currentQuery = query;
     query = '';
 
@@ -21,31 +22,42 @@
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
 
-    let assistantMsg = { role: 'assistant', content: '', timestamp: new Date().toLocaleTimeString() };
-    messages = [...messages, assistantMsg];
+    const assistantTimestamp = new Date().toLocaleTimeString();
+    messages.push({ role: 'assistant', content: '', timestamp: assistantTimestamp });
+    
+    let buffer = '';
 
     while (true) {
       const { done, value } = await reader?.read();
       if (done) break;
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
       
       for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const { type, data } = JSON.parse(line.slice(6));
+        const cleaned = line.trim();
+        if (!cleaned.startsWith('data: ')) continue;
+        
+        try {
+          const { type, data } = JSON.parse(cleaned.slice(6));
+          const lastMsg = messages[messages.length - 1];
 
-        if (type === 'chunk') {
-          assistantMsg.content += data;
-          messages = [...messages.slice(0, -1), assistantMsg];
-        } else if (type === 'status') {
-          status = data.toUpperCase();
-        } else if (type === 'skills') {
-          skills = data;
-        } else if (type === 'usage') {
-          usage = data;
-        } else if (type === 'graph') {
-          graphData = data;
+          if (type === 'chunk') {
+            lastMsg.content += data;
+          } else if (type === 'status') {
+            status = data.toUpperCase();
+          } else if (type === 'skills') {
+            skills = data;
+          } else if (type === 'usage') {
+            usage = data;
+          } else if (type === 'graph') {
+            graphData = data;
+          } else if (type === 'final') {
+            lastMsg.content = data;
+          }
+        } catch (e) {
+          // Incomplete JSON
         }
       }
     }
@@ -129,6 +141,11 @@
             <div class="meta">
               <span class="timestamp">[{msg.timestamp}]</span>
               <span class="actor">{msg.role === 'user' ? 'OPERATOR' : 'LOGIC_CORE'}</span>
+              {#if msg.role === 'assistant'}
+                <button class="copy-btn" onclick={() => navigator.clipboard.writeText(msg.content)}>
+                  COPY_OUTPUT
+                </button>
+              {/if}
             </div>
             <div class="body">{msg.content}</div>
           </div>
@@ -378,6 +395,24 @@
     padding: 0 6px;
     background: currentColor;
     color: black;
+  }
+
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 0 6px;
+    cursor: pointer;
+    transition: all 0.1s;
+    margin-left: auto;
+  }
+
+  .copy-btn:hover {
+    border-color: var(--magenta);
+    color: var(--magenta);
   }
 
   .body {

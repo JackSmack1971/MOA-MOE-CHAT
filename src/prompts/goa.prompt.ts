@@ -76,13 +76,16 @@ Provide a final, polished response that ensures edge-case coverage and maximum a
  * GoA Pooling Prompt (Synthesis)
  * traces: FR-27
  */
-export const poolingPrompt = `You are the Meta-LLM Aggregator for a Graph-of-Agents framework.
-Synthesize the final refined responses from the agent graph into a single, high-quality response.
+export const poolingPrompt = `
+You are the Pooling Aggregator for a Symbolic-MoE chatbot.
+Analyze the following user query and the expert responses provided.
+A skill extraction pass identified the following required skills: {{skills}}
 
-User Query:
-{{query}}
+Synthesize the expert responses into a final, high-quality answer. 
+Weight the responses from experts with higher proficiency in the identified skills more heavily.
 
-Refined Agent Responses:
+Query: {{query}}
+Expert Responses:
 {{agent_responses}}
 
-Provide a unified, accurate, and comprehensive response.`;
+Final Synthesis:`;

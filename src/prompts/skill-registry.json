@@ -1,0 +1,30 @@
+[
+  {
+    "id": "algebra_reasoning",
+    "keywords": ["math", "algebra", "equation", "formula", "variable"]
+  },
+  {
+    "id": "code_python",
+    "keywords": ["python", "script", "pandas", "numpy", "django"]
+  },
+  {
+    "id": "code_javascript",
+    "keywords": ["js", "javascript", "typescript", "node", "react"]
+  },
+  {
+    "id": "structured_data",
+    "keywords": ["json", "csv", "xml", "schema", "extraction"]
+  },
+  {
+    "id": "logic_puzzles",
+    "keywords": ["puzzle", "riddle", "deduction", "inference", "brainteaser"]
+  },
+  {
+    "id": "semantic_synthesis",
+    "keywords": ["summarize", "write", "creative", "prose", "essay"]
+  },
+  {
+    "id": "security_audit",
+    "keywords": ["vulnerability", "security", "exploit", "pii", "redaction"]
+  }
+]

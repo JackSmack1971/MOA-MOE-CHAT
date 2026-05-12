@@ -10,6 +10,7 @@ export interface ModelCard {
   description: string;
   context_window: number;
   active_params: string;
+  proficiencies: Record<string, number>;
 }
 
 export interface GraphPlan {

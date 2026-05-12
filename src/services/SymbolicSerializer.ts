@@ -5,10 +5,28 @@
  */
 export class SymbolicSerializer {
   /**
+   * Convert LLM skill keywords into a normalized skill vector based on the registry
+   * traces: FRD-FR-24
+   */
+  public static serializeSkillVector(keywords: string[], taxonomy: { id: string; keywords: string[] }[]): number[] {
+    const vector = new Array(taxonomy.length).fill(0);
+    const lowerKeywords = keywords.map(k => k.toLowerCase());
+
+    taxonomy.forEach((skill, index) => {
+      const matchCount = skill.keywords.filter(sk => 
+        lowerKeywords.some(lk => lk.includes(sk) || sk.includes(lk))
+      ).length;
+      
+      vector[index] = matchCount > 0 ? Math.min(1, matchCount / 2) : 0;
+    });
+
+    return vector;
+  }
+
+  /**
    * Serialize graph state to symbolic logic representation
    */
   public static serialize(state: any): string {
-    // TODO: Implement symbolic serialization for V3
     return JSON.stringify(state);
   }
 
@@ -16,7 +34,6 @@ export class SymbolicSerializer {
    * Deserialize symbolic logic to graph state
    */
   public static deserialize(logic: string): any {
-    // TODO: Implement symbolic deserialization for V3
     return JSON.parse(logic);
   }
 }

@@ -5,7 +5,16 @@
     "domain": "generalist",
     "description": "Meta-LLM optimized for graph node selection and task decomposition.",
     "context_window": 131072,
-    "active_params": "1.0T"
+    "active_params": "1.0T",
+    "proficiencies": {
+      "algebra_reasoning": 0.7,
+      "code_python": 0.6,
+      "code_javascript": 0.6,
+      "structured_data": 0.8,
+      "logic_puzzles": 0.9,
+      "semantic_synthesis": 0.9,
+      "security_audit": 0.7
+    }
   },
   {
     "id": "qwen/qwen3-next-80b-a3b-instruct:free",
@@ -13,7 +22,12 @@
     "domain": "logic",
     "description": "High-performance logic model for complex reasoning and mathematical proofing.",
     "context_window": 32768,
-    "active_params": "80B"
+    "active_params": "80B",
+    "proficiencies": {
+      "algebra_reasoning": 0.95,
+      "logic_puzzles": 0.9,
+      "structured_data": 0.7
+    }
   },
   {
     "id": "qwen/qwen3-coder:free",
@@ -21,7 +35,13 @@
     "domain": "extraction",
     "description": "Specialized in code generation, structured data extraction, and schema adherence.",
     "context_window": 32768,
-    "active_params": "Coder-Sparse"
+    "active_params": "Coder-Sparse",
+    "proficiencies": {
+      "code_python": 0.95,
+      "code_javascript": 0.95,
+      "structured_data": 0.9,
+      "security_audit": 0.8
+    }
   },
   {
     "id": "nvidia/nemotron-3-super-120b-a12b:free",
@@ -29,6 +49,11 @@
     "domain": "generalist",
     "description": "Robust all-rounder for synthesis, creative writing, and multi-turn consistency.",
     "context_window": 4096,
-    "active_params": "120B"
+    "active_params": "120B",
+    "proficiencies": {
+      "semantic_synthesis": 0.95,
+      "logic_puzzles": 0.7,
+      "algebra_reasoning": 0.6
+    }
   }
 ]
