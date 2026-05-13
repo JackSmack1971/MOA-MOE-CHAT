@@ -21,6 +21,10 @@ This plan implements the efficiency gains and refinements outlined in the "AGENT
 - Update Phase 5 (Refinement Loop):
   - Replace hardcoded `10` steps with `Math.min(10, Math.ceil(queryComplexityScore * 3))`.
   - Pass history to `RMoA.checkConvergence` for the Reflexion buffer.
+- **V2 Efficiency Gains**:
+  - Implement Model-Tier Routing (`CHEAP_MODEL` vs `PREMIUM_MODEL`).
+  - Implement `compressContext` for token-efficient bidirectional loops.
+  - Implement Early-Exit heuristic for trivial queries (`complexity < 0.2`).
 
 ### [Services]
 
@@ -30,7 +34,10 @@ This plan implements the efficiency gains and refinements outlined in the "AGENT
 
 #### [MODIFY] [DALC.ts](file:///c:/workspaces/MOA-MOE-CHAT/src/services/DALC.ts)
 - Optimize the `enforce` method to minimize redundant embedding calls.
-- (Optional) Implement expert-level collapse detection before synthesis.
+- Implement `predictCollapse` centroid check before synthesis.
+
+#### [MODIFY] [EmbeddingService.ts](file:///c:/workspaces/MOA-MOE-CHAT/src/services/EmbeddingService.ts)
+- Implement internal `vectorCache` with SHA-256 hashing to eliminate redundant calculations.
 
 ## Verification Plan
 

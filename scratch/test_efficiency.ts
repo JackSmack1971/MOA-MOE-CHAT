@@ -7,9 +7,9 @@ dotenv.config();
 async function runTest() {
   const orchestrator = new Orchestrator();
   const queries = [
-    "What is 2+2?", // Simple
-    "Explain the implications of quantum entanglement on faster-than-light communication in a multi-verse theory context.", // Complex
-    "Write a short poem about a cat that likes to eat pizza but only on Tuesdays." // Medium
+    "Hi", // Trivial -> Early exit
+    "What is the capital of France?", // Simple -> Cheap model selection
+    "Describe the architectural evolution of micro-services from monolithic designs to serverless functions, including trade-offs in observability and consistency." // Complex -> Premium synthesis
   ];
 
   for (const query of queries) {

@@ -1,5 +1,6 @@
 import { pipeline, FeatureExtractionPipeline } from '@huggingface/transformers';
 import { logger } from '../core/logger';
+import * as crypto from 'crypto';
 
 /**
  * EmbeddingService Singleton
@@ -10,6 +11,9 @@ export class EmbeddingService {
   private static instance: EmbeddingService;
   private pipeline: FeatureExtractionPipeline | null = null;
   private readonly modelName = 'nomic-ai/nomic-embed-text-v1.5';
+  
+  // Per-session vector cache to eliminate redundant calculations during refinement loops
+  private vectorCache = new Map<string, number[]>();
 
   private constructor() {}
 
@@ -43,6 +47,12 @@ export class EmbeddingService {
    * @returns Vector representation (768-dim)
    */
   public async embed(text: string): Promise<number[]> {
+    // Generate simple hash for the cache key
+    const hash = crypto.createHash('sha256').update(text).digest('hex');
+    if (this.vectorCache.has(hash)) {
+      return this.vectorCache.get(hash)!;
+    }
+
     if (!this.pipeline) {
       await this.init();
     }
@@ -52,7 +62,23 @@ export class EmbeddingService {
       normalize: true,
     });
 
-    return Array.from(output.data as Float32Array);
+    const result = Array.from(output.data as Float32Array);
+    
+    // Cache the result
+    this.vectorCache.set(hash, result);
+    if (this.vectorCache.size > 1000) { // Basic LRU-ish eviction
+      const firstKey = this.vectorCache.keys().next().value;
+      if (firstKey) this.vectorCache.delete(firstKey);
+    }
+
+    return result;
+  }
+
+  /**
+   * Clear the vector cache (useful for session handoffs)
+   */
+  public clearCache(): void {
+    this.vectorCache.clear();
   }
 
   /**
