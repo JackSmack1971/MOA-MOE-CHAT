@@ -88,8 +88,19 @@ async function* mergeStreams(generators: AsyncGenerator<any>[]) {
  */
 export class Orchestrator {
   private static readonly SELECTOR_MODEL = 'inclusionai/ring-2.6-1t:free';
+  private static readonly CHEAP_MODEL = 'google/gemma-2-9b-it:free';
+  private static readonly PREMIUM_MODEL = 'openai/gpt-4o-mini'; // Or similar premium model via models.md
   private static readonly REGISTRY_PATH = path.join(__dirname, '../prompts/agent-registry.json');
   private static readonly SKILL_TAXONOMY_PATH = path.join(__dirname, '../prompts/skill-registry.json');
+
+  /**
+   * Simple context compression helper to truncate very long expert responses
+   * before feeding them into refinement loops or synthesis.
+   */
+  private compressContext(text: string, maxLength: number = 2000): string {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength / 2) + '\n\n[... content truncated for token efficiency ...]\n\n' + text.substring(text.length - maxLength / 2);
+  }
 
   /**
    * Execute the Graph-of-Agents pipeline for a given query (Blocking)
@@ -127,6 +138,9 @@ export class Orchestrator {
     const queryComplexityScore = Math.min(3.3, (query.length / 200) + (query.split(' ').length / 50));
     const dynamicMaxSteps = Math.min(10, Math.ceil(queryComplexityScore * 3));
     logger.info({ queryComplexityScore, dynamicMaxSteps }, '[Orchestrator] Complexity analysis complete');
+    
+    const embeddingService = EmbeddingService.getInstance();
+    embeddingService.clearCache(); // Start fresh for this query
     RMoA.resetBuffer();
 
     // 0. Semantic Cache Lookup
@@ -143,8 +157,9 @@ export class Orchestrator {
     yield { type: 'status', data: 'Extracting skills...' };
     logger.info('[Orchestrator] Extracting skills');
     const taxonomy = JSON.parse(fs.readFileSync(Orchestrator.SKILL_TAXONOMY_PATH, 'utf-8'));
+    // Use CHEAP_MODEL for skill extraction
     const { content: skillKeywords, usage: skillUsage } = await callModel(
-      Orchestrator.SELECTOR_MODEL,
+      Orchestrator.CHEAP_MODEL,
       skillExtractorPrompt
         .replace('{{taxonomy}}', JSON.stringify(taxonomy.map((t: any) => t.id)))
         .replace('{{query}}', query),
@@ -159,8 +174,10 @@ export class Orchestrator {
     logger.info('[Orchestrator] Selecting experts');
     const rawRegistry = JSON.parse(fs.readFileSync(Orchestrator.REGISTRY_PATH, 'utf-8'));
     const registry: ModelCard[] = rawRegistry.map((m: any) => ModelCardSchema.parse(m));
+    // Use CHEAP_MODEL for expert selection if complexity is low
+    const selectionModel = queryComplexityScore < 1.0 ? Orchestrator.CHEAP_MODEL : Orchestrator.SELECTOR_MODEL;
     const { content: selectorResponse, usage: selectorUsage } = await callModel(
-      Orchestrator.SELECTOR_MODEL,
+      selectionModel,
       selectorPrompt
         .replace('{{registry}}', JSON.stringify(registry, null, 2))
         .replace('{{query}}', query),
@@ -200,11 +217,20 @@ export class Orchestrator {
       yield event;
     }
 
+    // 2.5 Early Exit for trivial queries
+    if (queryComplexityScore < 0.2) {
+      logger.info('[Orchestrator] Low complexity detected. Skipping refinement.');
+      // Map experts to final output format and exit
+      const quickSynthesis = [...initialResponses.values()].join('\n\n---\n\n');
+      yield { type: 'final', data: quickSynthesis };
+      await SemanticCache.set(query, quickSynthesis);
+      return;
+    }
+
     // 3. Peer-to-Peer Relevance Scoring
     yield { type: 'status', data: 'Building adjacency graph (Hybrid)...' };
     const scores = new Map<string, Map<string, number>>();
     const scoringTasks: Promise<void>[] = [];
-    const embeddingService = EmbeddingService.getInstance();
 
     // Pre-calculate embeddings for initial responses
     const initialEmbeddings = new Map<string, number[]>();
@@ -232,7 +258,7 @@ export class Orchestrator {
             logger.debug({ sourceId, targetId, similarity }, '[Orchestrator] Using embedding similarity (High overlap)');
           } else {
             const { content: scoreStr, usage } = await callModel(
-              sourceId,
+              Orchestrator.CHEAP_MODEL, // Use CHEAP_MODEL for scoring checks
               relevanceScoringPrompt.replace('{{query}}', query).replace('{{target_output}}', initialResponses.get(targetId)!),
               0.1
             );
@@ -263,7 +289,8 @@ export class Orchestrator {
     let finalRefinedResponses = initialResponses;
 
     for (let step = 1; step <= dynamicMaxSteps; step++) {
-      const sourceContext = source.map(id => `Agent [${id}]: ${currentResponses.get(id)}`).join('\n\n');
+      // Compress context for source agents
+      const sourceContext = source.map(id => `Agent [${id}]: ${this.compressContext(currentResponses.get(id) || '')}`).join('\n\n');
       const refined = new Map<string, string>();
 
       // Forward Pass
@@ -293,7 +320,8 @@ export class Orchestrator {
       }
 
       // Reverse Pass
-      const targetRefinements = target.map(id => `Refined Agent [${id}]: ${refined.get(id)}`).join('\n\n');
+      // Compress target refinements for reverse pass
+      const targetRefinements = target.map(id => `Refined Agent [${id}]: ${this.compressContext(refined.get(id) || '')}`).join('\n\n');
       const reverseGenerators = source.map((sourceId) => (async function* () {
         let fullContent = '';
         const stream = callModelStream(
@@ -360,7 +388,9 @@ export class Orchestrator {
         prompt += `\n\nCRITICAL DIVERSITY DIRECTIVE: ${directive}`;
       }
       
-      const { content, usage } = await callModel(Orchestrator.SELECTOR_MODEL, prompt, 0.3);
+      // Use PREMIUM_MODEL for final synthesis if complexity is high
+      const synthesisModel = queryComplexityScore > 2.0 ? Orchestrator.PREMIUM_MODEL : Orchestrator.SELECTOR_MODEL;
+      const { content, usage } = await callModel(synthesisModel, prompt, 0.3);
       trackUsage(usage);
       return content;
     };

@@ -21,6 +21,14 @@ I have implemented the production-grade efficiency gains as scoped in the AGENTI
 - **Predicted Collapse**: Implemented `DALC.predictCollapse` which checks expert centroid similarity vs. the plan rationale *before* the first synthesis call.
 - **LLM Savings**: If collapse is predicted, the system jumps straight to diversity-aware synthesis, saving one full LLM call.
 
+### 5. Efficiency Refactor V2 (New)
+- **Per-query Vector Cache**: Added a `Map`-based cache in `EmbeddingService.ts` with SHA-256 hashing. This eliminates redundant embedding calculations within a single query execution.
+- **Model-Tier Routing**: 
+  - `CHEAP_MODEL` (`gemma-2-9b`) used for skill extraction, scoring checks, and selection.
+  - `PREMIUM_MODEL` (`gpt-4o-mini`) used for high-complexity synthesis.
+- **Context Compression**: Implemented `compressContext` to truncate expert responses before loops, preventing context window bloat and reducing input tokens.
+- **Early-Exit for Trivial Queries**: If `queryComplexityScore < 0.2`, the system skips the entire refinement loop and provides a quick synthesis, delivering sub-second responses for simple intents.
+
 ## Verification Results
 
 ### Logic Verification (via Logs)
