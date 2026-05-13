@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import { logger } from '../core/logger';
 
 dotenv.config();
 
@@ -30,12 +31,22 @@ export class DbService {
    * traces: FR-04
    */
   public async saveMemory(content: string, embedding: number[], metadata: any = {}): Promise<void> {
-    const query = `
-      INSERT INTO agent_memory (content, embedding, metadata)
-      VALUES ($1, $2, $3)
-    `;
-    // pgvector expects [1,2,3] format as string or array
-    await this.pool.query(query, [content, JSON.stringify(embedding), metadata]);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const query = `
+        INSERT INTO agent_memory (content, embedding, metadata)
+        VALUES ($1, $2, $3)
+      `;
+      await client.query(query, [content, JSON.stringify(embedding), metadata]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      logger.error({ err }, '[DbService] Transaction failed. Rolled back.');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   /**

@@ -9,7 +9,7 @@ import { logger } from '../core/logger';
 export class EmbeddingService {
   private static instance: EmbeddingService;
   private pipeline: FeatureExtractionPipeline | null = null;
-  private readonly modelName = 'Xenova/all-MiniLM-L6-v2';
+  private readonly modelName = 'nomic-ai/nomic-embed-text-v1.5';
 
   private constructor() {}
 

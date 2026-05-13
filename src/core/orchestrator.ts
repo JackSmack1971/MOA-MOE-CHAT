@@ -15,7 +15,14 @@ import { SemanticCache } from '../services/SemanticCache';
 import { GraphEngine } from '../services/GraphEngine';
 import { SymbolicSerializer } from '../services/SymbolicSerializer';
 import { EdgeConstructor } from './edgeConstructor';
-import { ModelCard, GraphPlan, AdjacencyMatrix, PartitionedNodes } from './types';
+import { 
+  ModelCard, 
+  GraphPlan, 
+  AdjacencyMatrix, 
+  PartitionedNodes,
+  GraphPlanSchema,
+  ModelCardSchema
+} from './types';
 import { logger } from './logger';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -81,7 +88,8 @@ export class Orchestrator {
 
     // 1. Meta-LLM Selection
     yield { type: 'status', data: 'Selecting experts...' };
-    const registry: ModelCard[] = JSON.parse(fs.readFileSync(Orchestrator.REGISTRY_PATH, 'utf-8'));
+    const rawRegistry = JSON.parse(fs.readFileSync(Orchestrator.REGISTRY_PATH, 'utf-8'));
+    const registry: ModelCard[] = rawRegistry.map((m: any) => ModelCardSchema.parse(m));
     const { content: selectorResponse, usage: selectorUsage } = await callModel(
       Orchestrator.SELECTOR_MODEL,
       selectorPrompt
@@ -94,8 +102,10 @@ export class Orchestrator {
     let plan: GraphPlan;
     try {
       const cleaned = selectorResponse.replace(/```json\n?|\n?```/g, '').trim();
-      plan = JSON.parse(cleaned);
+      const rawPlan = JSON.parse(cleaned);
+      plan = GraphPlanSchema.parse(rawPlan);
     } catch (err) {
+      logger.warn({ err, selectorResponse }, '[Orchestrator] Plan validation failed. Using fallback.');
       plan = { selectedNodes: registry.slice(1, 4).map(m => m.id), poolingMethod: 'mean', rationale: 'Fallback' };
     }
     yield { type: 'plan', data: plan };
@@ -139,52 +149,91 @@ export class Orchestrator {
     const { source, target } = GraphEngine.partitionNodes(plan.selectedNodes, hybridAdj);
     yield { type: 'graph', data: { nodes: plan.selectedNodes, adjacency: hybridAdj } };
 
-    // 5. Bidirectional Message Passing
-    yield { type: 'status', data: 'Performing bidirectional refinement...' };
-    const sourceContext = source.map(id => `Agent [${id}]: ${initialResponses.get(id)}`).join('\n\n');
-    const refinedResponses = new Map<string, string>();
+    // 5. Bidirectional Message Passing (with RMoA)
+    yield { type: 'status', data: 'Performing iterative refinement...' };
+    let previousAggregate = [...initialResponses.values()].join('\n');
+    let currentResponses = initialResponses;
+    let finalRefinedResponses = initialResponses;
 
-    await Promise.all(target.map(async (targetId) => {
-      const { content: refined, usage } = await callModel(
-        targetId,
-        forwardPassPrompt.replace('{{query}}', query).replace('{{initial_response}}', initialResponses.get(targetId)!).replace('{{source_context}}', sourceContext),
-        0.7
-      );
-      refinedResponses.set(targetId, refined);
-      trackUsage(usage);
-    }));
+    for (let step = 1; step <= 10; step++) {
+      const sourceContext = source.map(id => `Agent [${id}]: ${currentResponses.get(id)}`).join('\n\n');
+      const refined = new Map<string, string>();
 
-    const targetRefinements = target.map(id => `Refined Agent [${id}]: ${refinedResponses.get(id)}`).join('\n\n');
-    const polishedResponses = new Map<string, string>();
+      // Forward Pass
+      await Promise.all(target.map(async (targetId) => {
+        const { content, usage } = await callModel(
+          targetId,
+          forwardPassPrompt
+            .replace('{{query}}', query)
+            .replace('{{initial_response}}', currentResponses.get(targetId) || '')
+            .replace('{{source_context}}', sourceContext),
+          0.7
+        );
+        refined.set(targetId, content);
+        trackUsage(usage);
+      }));
 
-    await Promise.all(source.map(async (sourceId) => {
-      const { content: polished, usage } = await callModel(
-        sourceId,
-        reversePassPrompt.replace('{{query}}', query).replace('{{initial_response}}', initialResponses.get(sourceId)!).replace('{{target_refinements}}', targetRefinements),
-        0.7
-      );
-      polishedResponses.set(sourceId, polished);
-      trackUsage(usage);
-    }));
+      // Reverse Pass
+      const targetRefinements = target.map(id => `Refined Agent [${id}]: ${refined.get(id)}`).join('\n\n');
+      await Promise.all(source.map(async (sourceId) => {
+        const { content, usage } = await callModel(
+          sourceId,
+          reversePassPrompt
+            .replace('{{query}}', query)
+            .replace('{{initial_response}}', currentResponses.get(sourceId) || '')
+            .replace('{{target_refinements}}', targetRefinements),
+          0.7
+        );
+        refined.set(sourceId, content);
+        trackUsage(usage);
+      }));
 
-    // 6. Dynamic Pooling (Streaming)
-    yield { type: 'status', data: 'Finalizing synthesis...' };
-    const allFinalResponses = [...polishedResponses.values(), ...refinedResponses.values()];
-    const poolingStream = callModelStream(
-      Orchestrator.SELECTOR_MODEL,
-      poolingPrompt.replace('{{query}}', query).replace('{{skills}}', skillKeywords).replace('{{agent_responses}}', allFinalResponses.join('\n\n--- Agent Break ---\n\n')),
-      0.3
-    );
+      const currentAggregate = [...refined.values()].join('\n');
+      const haltDecision = await RMoA.checkConvergence(currentAggregate, previousAggregate, step);
+      
+      yield { type: 'status', data: `Refinement step ${step}: Δ=${haltDecision.delta.toFixed(4)}` };
+      
+      currentResponses = refined;
+      previousAggregate = currentAggregate;
+      finalRefinedResponses = refined;
 
-    let finalOutput = '';
-    for await (const chunk of poolingStream) {
-      if (chunk.type === 'chunk') {
-        finalOutput += chunk.data;
-        yield { type: 'chunk', data: chunk.data };
-      } else if (chunk.type === 'usage') {
-        trackUsage(chunk.data);
+      if (haltDecision.shouldHalt) {
+        logger.info({ haltReason: haltDecision.haltReason, step }, '[RMoA] Halting condition met.');
+        break;
       }
     }
+
+    // 6. Dynamic Pooling (with DALC)
+    yield { type: 'status', data: 'Finalizing synthesis with DALC...' };
+    const allFinalResponses = [...finalRefinedResponses.values()];
+    
+    const runSynthesis = async (directive: string = '') => {
+      let prompt = poolingPrompt
+        .replace('{{query}}', query)
+        .replace('{{skills}}', skillKeywords)
+        .replace('{{agent_responses}}', allFinalResponses.join('\n\n--- Agent Break ---\n\n'));
+      
+      if (directive) {
+        prompt += `\n\nCRITICAL DIVERSITY DIRECTIVE: ${directive}`;
+      }
+      
+      const { content, usage } = await callModel(Orchestrator.SELECTOR_MODEL, prompt, 0.3);
+      trackUsage(usage);
+      return content;
+    };
+
+    const initialSynthesis = await runSynthesis();
+    const dalcResult = await DALC.enforce(
+      initialSynthesis,
+      plan.rationale,
+      runSynthesis
+    );
+
+    yield { type: 'dalc', data: dalcResult };
+    let finalOutput = dalcResult.finalOutput;
+
+    // Final streaming display of results
+    yield { type: 'chunk', data: finalOutput };
 
     // 7. Verifier
     yield { type: 'usage', data: totalUsage };
