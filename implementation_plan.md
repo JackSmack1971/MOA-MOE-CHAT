@@ -21,10 +21,13 @@ This plan implements the efficiency gains and refinements outlined in the "AGENT
 - Update Phase 5 (Refinement Loop):
   - Replace hardcoded `10` steps with `Math.min(10, Math.ceil(queryComplexityScore * 3))`.
   - Pass history to `RMoA.checkConvergence` for the Reflexion buffer.
-- **V2 Efficiency Gains**:
+- **V2 & V3 Efficiency Gains**:
   - Implement Model-Tier Routing (`CHEAP_MODEL` vs `PREMIUM_MODEL`).
   - Implement `compressContext` for token-efficient bidirectional loops.
   - Implement Early-Exit heuristic for trivial queries (`complexity < 0.2`).
+  - Implement **Async Batching (Concurrency=3)** in RMoA loop.
+  - Implement **Vector-Index Edge Pruning** in Phase 3 scoring.
+  - Implement **High-Confidence Early Exit** classifier after Step 1.
 
 ### [Services]
 

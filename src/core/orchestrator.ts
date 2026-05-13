@@ -83,6 +83,22 @@ async function* mergeStreams(generators: AsyncGenerator<any>[]) {
 }
 
 /**
+ * Concurrency-limited promise pool helper
+ */
+async function batchMap<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  const batches: T[][] = [];
+  for (let i = 0; i < items.length; i += limit) {
+    batches.push(items.slice(i, i + limit));
+  }
+  for (const batch of batches) {
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
+/**
  * Orchestrator Service (V3 Symbolic-MoE)
  * traces: FR-23, FR-24, FR-25, FR-26, FR-27, ADR-001, ADR-007
  */
@@ -251,9 +267,15 @@ export class Orchestrator {
             : 0;
 
           const threshold = parseFloat(process.env.RELEVANCE_EMBEDDING_THRESHOLD || '0.7');
+          const lowThreshold = 0.3; // Pruning threshold
 
-          // Hybrid Filter: If similarity is low (< threshold), use LLM for nuanced scoring.
-          if (similarity > threshold) {
+          // Vector-Index Logic: Prune irrelevant edges entirely
+          if (similarity < lowThreshold) {
+            score = 0;
+            logger.debug({ sourceId, targetId, similarity }, '[Orchestrator] Pruning irrelevant edge');
+          }
+          // Hybrid Filter: If similarity is high, use embedding score
+          else if (similarity > threshold) {
             score = similarity;
             logger.debug({ sourceId, targetId, similarity }, '[Orchestrator] Using embedding similarity (High overlap)');
           } else {
@@ -319,32 +341,50 @@ export class Orchestrator {
         yield event;
       }
 
+      // Early Exit Classifier: If first step is near-perfect convergence, skip remaining steps
+      const firstStepAggregate = [...refined.values()].join('\n');
+      const firstStepHalt = await RMoA.checkConvergence(firstStepAggregate, previousAggregate, step, dynamicMaxSteps);
+      if (step === 1 && firstStepHalt.delta < 0.015) {
+        logger.info({ delta: firstStepHalt.delta }, '[RMoA] High-confidence convergence after step 1. Early exiting.');
+        finalRefinedResponses = refined;
+        break;
+      }
+
       // Reverse Pass
       // Compress target refinements for reverse pass
       const targetRefinements = target.map(id => `Refined Agent [${id}]: ${this.compressContext(refined.get(id) || '')}`).join('\n\n');
-      const reverseGenerators = source.map((sourceId) => (async function* () {
-        let fullContent = '';
-        const stream = callModelStream(
-          sourceId,
-          reversePassPrompt
-            .replace('{{query}}', query)
-            .replace('{{initial_response}}', currentResponses.get(sourceId) || '')
-            .replace('{{target_refinements}}', targetRefinements),
-          0.7
-        );
-        for await (const chunk of stream) {
-          if (chunk.type === 'chunk') {
-            fullContent += chunk.data;
-            yield { type: 'expert_chunk', data: { nodeId: sourceId, content: chunk.data, step } };
-          } else if (chunk.type === 'usage') {
-            trackUsage(chunk.data, sourceId);
+      // Use batching for reverse pass with concurrency 3
+      const reversePassTasks: (() => AsyncGenerator<any>)[] = [];
+      for (const sourceId of source) {
+        reversePassTasks.push(() => (async function* () {
+          let fullContent = '';
+          const stream = callModelStream(
+            sourceId,
+            reversePassPrompt
+              .replace('{{query}}', query)
+              .replace('{{initial_response}}', currentResponses.get(sourceId) || '')
+              .replace('{{target_refinements}}', targetRefinements),
+            0.7
+          );
+          for await (const chunk of stream) {
+            if (chunk.type === 'chunk') {
+              fullContent += chunk.data;
+              yield { type: 'expert_chunk', data: { nodeId: sourceId, content: chunk.data, step } };
+            } else if (chunk.type === 'usage') {
+              trackUsage(chunk.data, sourceId);
+            }
           }
-        }
-        refined.set(sourceId, fullContent);
-      })());
+          refined.set(sourceId, fullContent);
+        })());
+      }
 
-      for await (const event of mergeStreams(reverseGenerators)) {
-        yield event;
+      // Execute batches of 3
+      const CONCURRENCY_LIMIT = 3;
+      for (let i = 0; i < reversePassTasks.length; i += CONCURRENCY_LIMIT) {
+        const batch = reversePassTasks.slice(i, i + CONCURRENCY_LIMIT).map(t => t());
+        for await (const event of mergeStreams(batch)) {
+          yield event;
+        }
       }
 
       const currentAggregate = [...refined.values()].join('\n');
