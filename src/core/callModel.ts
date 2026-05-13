@@ -136,7 +136,14 @@ export async function* callModelStream(
             yield { type: 'chunk', data: chunk };
           }
           if (parsed.usage) {
-            yield { type: 'usage', data: parsed.usage };
+            yield { 
+              type: 'usage', 
+              data: {
+                prompt: parsed.usage.prompt_tokens,
+                completion: parsed.usage.completion_tokens,
+                total: parsed.usage.total_tokens
+              } 
+            };
           }
         } catch (err) {
           // Ignore parse errors for incomplete chunks
