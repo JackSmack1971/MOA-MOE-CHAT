@@ -2,6 +2,7 @@ import { callModel, callModelStream } from './callModel';
 import { DALC } from '../services/DALC';
 import { RMoA } from '../services/RMoA';
 import { Verifier, VerifierVerdict } from '../services/Verifier';
+import { EmbeddingService } from '../services/EmbeddingService';
 import { 
   selectorPrompt, 
   relevanceScoringPrompt, 
@@ -35,6 +36,7 @@ async function* mergeStreams(generators: AsyncGenerator<any>[]) {
   const queue: any[] = [];
   let active = generators.length;
   let resolve: ((v: any) => void) | null = null;
+  let error: any = null;
 
   generators.forEach(async (gen) => {
     try {
@@ -46,16 +48,28 @@ async function* mergeStreams(generators: AsyncGenerator<any>[]) {
           queue.push(value);
         }
       }
+    } catch (err) {
+      logger.error({ err }, '[mergeStreams] Generator error');
+      error = err;
+      if (resolve) {
+        resolve(null);
+        resolve = null;
+      }
     } finally {
       active--;
       if (active === 0) {
-        if (resolve) resolve(null);
-        else queue.push(null);
+        if (resolve) {
+          resolve(null);
+          resolve = null;
+        } else {
+          queue.push(null);
+        }
       }
     }
   });
 
   while (true) {
+    if (error) throw error;
     if (queue.length > 0) {
       const val = queue.shift();
       if (val === null) break;
@@ -109,7 +123,15 @@ export class Orchestrator {
       }
     };
 
+    // -1. Query Complexity Analysis (Heuristic)
+    const queryComplexityScore = Math.min(3.3, (query.length / 200) + (query.split(' ').length / 50));
+    const dynamicMaxSteps = Math.min(10, Math.ceil(queryComplexityScore * 3));
+    logger.info({ queryComplexityScore, dynamicMaxSteps }, '[Orchestrator] Complexity analysis complete');
+    RMoA.resetBuffer();
+
     // 0. Semantic Cache Lookup
+    yield { type: 'status', data: 'Performing cache lookup...' };
+    logger.info({ query }, '[Orchestrator] Starting query execution');
     const cachedResponse = await SemanticCache.get(query);
     if (cachedResponse) {
       yield { type: 'chunk', data: cachedResponse };
@@ -119,6 +141,7 @@ export class Orchestrator {
 
     // 0.5. Skill Extraction
     yield { type: 'status', data: 'Extracting skills...' };
+    logger.info('[Orchestrator] Extracting skills');
     const taxonomy = JSON.parse(fs.readFileSync(Orchestrator.SKILL_TAXONOMY_PATH, 'utf-8'));
     const { content: skillKeywords, usage: skillUsage } = await callModel(
       Orchestrator.SELECTOR_MODEL,
@@ -133,6 +156,7 @@ export class Orchestrator {
 
     // 1. Meta-LLM Selection
     yield { type: 'status', data: 'Selecting experts...' };
+    logger.info('[Orchestrator] Selecting experts');
     const rawRegistry = JSON.parse(fs.readFileSync(Orchestrator.REGISTRY_PATH, 'utf-8'));
     const registry: ModelCard[] = rawRegistry.map((m: any) => ModelCardSchema.parse(m));
     const { content: selectorResponse, usage: selectorUsage } = await callModel(
@@ -177,21 +201,46 @@ export class Orchestrator {
     }
 
     // 3. Peer-to-Peer Relevance Scoring
-    yield { type: 'status', data: 'Building adjacency graph...' };
+    yield { type: 'status', data: 'Building adjacency graph (Hybrid)...' };
     const scores = new Map<string, Map<string, number>>();
     const scoringTasks: Promise<void>[] = [];
+    const embeddingService = EmbeddingService.getInstance();
+
+    // Pre-calculate embeddings for initial responses
+    const initialEmbeddings = new Map<string, number[]>();
+    for (const [nodeId, response] of initialResponses.entries()) {
+      initialEmbeddings.set(nodeId, await embeddingService.embed(response));
+    }
 
     for (const sourceId of plan.selectedNodes) {
       for (const targetId of plan.selectedNodes) {
         if (sourceId === targetId) continue;
         scoringTasks.push((async () => {
-          const { content: scoreStr, usage } = await callModel(
-            sourceId,
-            relevanceScoringPrompt.replace('{{query}}', query).replace('{{target_output}}', initialResponses.get(targetId)!),
-            0.1
-          );
-          trackUsage(usage, sourceId);
-          const score = parseFloat(scoreStr) || 0;
+          const sourceEmbed = initialEmbeddings.get(sourceId);
+          const targetEmbed = initialEmbeddings.get(targetId);
+          
+          let score: number;
+          const similarity = (sourceEmbed && targetEmbed) 
+            ? EmbeddingService.cosineSimilarity(sourceEmbed, targetEmbed) 
+            : 0;
+
+          const threshold = parseFloat(process.env.RELEVANCE_EMBEDDING_THRESHOLD || '0.7');
+
+          // Hybrid Filter: If similarity is low (< threshold), use LLM for nuanced scoring.
+          if (similarity > threshold) {
+            score = similarity;
+            logger.debug({ sourceId, targetId, similarity }, '[Orchestrator] Using embedding similarity (High overlap)');
+          } else {
+            const { content: scoreStr, usage } = await callModel(
+              sourceId,
+              relevanceScoringPrompt.replace('{{query}}', query).replace('{{target_output}}', initialResponses.get(targetId)!),
+              0.1
+            );
+            trackUsage(usage, sourceId);
+            score = parseFloat(scoreStr) || 0;
+            logger.debug({ sourceId, targetId, similarity, llmScore: score }, '[Orchestrator] Using LLM for nuanced scoring');
+          }
+
           if (!scores.has(sourceId)) scores.set(sourceId, new Map());
           scores.get(sourceId)!.set(targetId, score);
         })());
@@ -213,7 +262,7 @@ export class Orchestrator {
     let currentResponses = initialResponses;
     let finalRefinedResponses = initialResponses;
 
-    for (let step = 1; step <= 10; step++) {
+    for (let step = 1; step <= dynamicMaxSteps; step++) {
       const sourceContext = source.map(id => `Agent [${id}]: ${currentResponses.get(id)}`).join('\n\n');
       const refined = new Map<string, string>();
 
@@ -271,8 +320,9 @@ export class Orchestrator {
       }
 
       const currentAggregate = [...refined.values()].join('\n');
-      const haltDecision = await RMoA.checkConvergence(currentAggregate, previousAggregate, step);
+      const haltDecision = await RMoA.checkConvergence(currentAggregate, previousAggregate, step, dynamicMaxSteps);
       
+      logger.info({ step, delta: haltDecision.delta, dynamicMaxSteps }, `[RMoA] Refinement progress: step ${step}/${dynamicMaxSteps}`);
       yield { type: 'status', data: `Refinement step ${step}: Δ=${haltDecision.delta.toFixed(4)}` };
       
       currentResponses = refined;
@@ -282,7 +332,8 @@ export class Orchestrator {
       yield { type: 'graph', data: { nodes: plan.selectedNodes, adjacency: hybridAdj, usage: nodeUsage } };
 
       if (haltDecision.shouldHalt) {
-        logger.info({ haltReason: haltDecision.haltReason, step }, '[RMoA] Halting condition met.');
+        logger.info({ haltReason: haltDecision.haltReason, step, totalSteps: dynamicMaxSteps }, '[RMoA] Halting condition met.');
+        yield { type: 'status', data: `Refinement HALTED at step ${step}: ${haltDecision.haltReason}` };
         break;
       }
     }
@@ -290,6 +341,14 @@ export class Orchestrator {
     // 6. Dynamic Pooling (with DALC)
     yield { type: 'status', data: 'Finalizing synthesis with DALC...' };
     const allFinalResponses = [...finalRefinedResponses.values()];
+    const planEmbedding = await embeddingService.embed(plan.rationale);
+
+    // Predicted Collapse Optimization:
+    // If experts already collapse with the plan, skip the "clean" first synthesis.
+    const finalEmbeddings = await Promise.all(
+      allFinalResponses.map(resp => embeddingService.embed(resp))
+    );
+    const predictedCollapse = DALC.predictCollapse(finalEmbeddings, planEmbedding);
     
     const runSynthesis = async (directive: string = '') => {
       let prompt = poolingPrompt
@@ -306,12 +365,27 @@ export class Orchestrator {
       return content;
     };
 
-    const initialSynthesis = await runSynthesis();
+    let initialSynthesis: string;
+    let initialStatus: DALCResult['status'] = 'PASS';
+    
+    if (predictedCollapse) {
+      logger.info('[Orchestrator] Predicted collapse detected. Jumping to diversity-aware synthesis.');
+      initialSynthesis = await runSynthesis(DALC.ORTHOGONALITY_DIRECTIVE);
+      initialStatus = 'PREDICTED_COLLAPSE_AVOIDED';
+    } else {
+      initialSynthesis = await runSynthesis();
+    }
+
     const dalcResult = await DALC.enforce(
       initialSynthesis,
       plan.rationale,
-      runSynthesis
+      runSynthesis,
+      planEmbedding
     );
+    
+    if (initialStatus === 'PREDICTED_COLLAPSE_AVOIDED' && dalcResult.status === 'PASS') {
+      dalcResult.status = 'PREDICTED_COLLAPSE_AVOIDED';
+    }
 
     yield { type: 'dalc', data: dalcResult };
     let finalOutput = dalcResult.finalOutput;

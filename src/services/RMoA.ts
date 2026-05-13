@@ -1,4 +1,5 @@
 import { EmbeddingService } from './EmbeddingService';
+import { logger } from '../core/logger';
 
 /**
  * RMoA Halt Decision Schema
@@ -12,29 +13,47 @@ export interface RMoAHaltDecision {
 }
 
 /**
+ * Reflexion Buffer Entry
+ */
+interface ReflexionEntry {
+  step: number;
+  delta: number;
+  aggregateLength: number;
+}
+
+/**
  * Residual MoA (RMoA) Adaptive Halting Service
  * traces: FR-07, FR-08, ADR-006
  * Monitors informational delta between successive proposer outputs.
  */
 export class RMoA {
-  private static readonly EPSILON = 0.02; // ADR-006
-  private static readonly MAX_STEPS = 10; // FR-08
+  private static readonly DEFAULT_EPSILON = 0.02; // ADR-006
+  private static reflexionBuffer: ReflexionEntry[] = [];
+
+  /**
+   * Reset the Reflexion buffer for a new query
+   */
+  public static resetBuffer(): void {
+    this.reflexionBuffer = [];
+  }
 
   /**
    * Check if the MoA loop should halt based on informational convergence
    * @param currentOutput Current proposer output
    * @param previousOutput Previous proposer output (null for first turn)
    * @param currentStep Current iteration count
+   * @param maxSteps Maximum steps allowed for this query
    */
   public static async checkConvergence(
     currentOutput: string,
     previousOutput: string | null,
-    currentStep: number
+    currentStep: number,
+    maxSteps: number = 10
   ): Promise<RMoAHaltDecision> {
-    if (currentStep >= this.MAX_STEPS) {
+    if (currentStep >= maxSteps) {
       return {
         shouldHalt: true,
-        delta: 1.0, // Arbitrary high delta for max steps
+        delta: 1.0,
         haltReason: 'MAX_STEPS_EXCEEDED',
         stepCount: currentStep
       };
@@ -57,13 +76,41 @@ export class RMoA {
     const diff = EmbeddingService.subtract(currentEmbed, previousEmbed);
     const delta = EmbeddingService.l2Norm(diff);
 
-    if (delta < this.EPSILON) {
+    // Update Reflexion buffer
+    this.reflexionBuffer.push({
+      step: currentStep,
+      delta,
+      aggregateLength: currentOutput.length
+    });
+
+    // Dynamic Epsilon Adjustment: 
+    // If we've seen 3 steps of very low delta (even if not < EPSILON), or if delta is oscillating.
+    const epsilon = this.DEFAULT_EPSILON;
+
+    if (delta < epsilon) {
       return {
         shouldHalt: true,
         delta,
         haltReason: 'CONVERGED',
         stepCount: currentStep
       };
+    }
+
+    // Secondary Halt: Check for plateau in the reflexion buffer
+    if (this.reflexionBuffer.length >= 3) {
+      const lastThree = this.reflexionBuffer.slice(-3);
+      const isPlateau = lastThree.every(e => Math.abs(e.delta - delta) < 0.005);
+      const plateauThreshold = parseFloat(process.env.PLATEAU_DELTA || '0.05');
+      
+      if (isPlateau && delta < plateauThreshold) {
+        logger.info({ delta, plateau: true }, '[RMoA] Plateau detected in refinement.');
+        return {
+          shouldHalt: true,
+          delta,
+          haltReason: 'CONVERGED', // Treat plateau as convergence
+          stepCount: currentStep
+        };
+      }
     }
 
     return {
