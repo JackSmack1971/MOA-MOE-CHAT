@@ -10,7 +10,7 @@
     "dev": "tsx src/index.ts",
     "start": "tsx src/index.ts",
     "test": "vitest",
-    "test:golden": "vitest run --grep golden",
+    "test:golden": "vitest run -t golden",
     "db:migrate": "ts-node scripts/migrate.ts",
     "d0-verify": "ts-node scripts/d0-verify-models.ts",
     "benchmark:golden": "ts-node scripts/benchmark.ts"

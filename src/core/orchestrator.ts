@@ -28,6 +28,47 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
+ * Merges multiple async generators into a single interleaved stream.
+ */
+async function* mergeStreams(generators: AsyncGenerator<any>[]) {
+  if (generators.length === 0) return;
+  const queue: any[] = [];
+  let active = generators.length;
+  let resolve: ((v: any) => void) | null = null;
+
+  generators.forEach(async (gen) => {
+    try {
+      for await (const value of gen) {
+        if (resolve) {
+          resolve(value);
+          resolve = null;
+        } else {
+          queue.push(value);
+        }
+      }
+    } finally {
+      active--;
+      if (active === 0) {
+        if (resolve) resolve(null);
+        else queue.push(null);
+      }
+    }
+  });
+
+  while (true) {
+    if (queue.length > 0) {
+      const val = queue.shift();
+      if (val === null) break;
+      yield val;
+    } else {
+      const val = await new Promise(r => (resolve = r));
+      if (val === null) break;
+      yield val;
+    }
+  }
+}
+
+/**
  * Orchestrator Service (V3 Symbolic-MoE)
  * traces: FR-23, FR-24, FR-25, FR-26, FR-27, ADR-001, ADR-007
  */
@@ -58,10 +99,14 @@ export class Orchestrator {
     yield { type: 'status', data: 'Initializing pipeline...' };
 
     let totalUsage = { prompt: 0, completion: 0, total: 0 };
-    const trackUsage = (usage: { prompt: number; completion: number; total: number }) => {
+    let nodeUsage: Record<string, number> = {};
+    const trackUsage = (usage: { prompt: number; completion: number; total: number }, nodeId?: string) => {
       totalUsage.prompt += usage.prompt;
       totalUsage.completion += usage.completion;
       totalUsage.total += usage.total;
+      if (nodeId) {
+        nodeUsage[nodeId] = (nodeUsage[nodeId] || 0) + usage.total;
+      }
     };
 
     // 0. Semantic Cache Lookup
@@ -113,11 +158,23 @@ export class Orchestrator {
     // 2. Initial Node Responses
     yield { type: 'status', data: 'Gathering initial perspectives...' };
     const initialResponses = new Map<string, string>();
-    await Promise.all(plan.selectedNodes.map(async (nodeId) => {
-      const { content, usage } = await callModel(nodeId, `Task: Provide an initial expert response to the query: ${query}`, 0.7);
-      initialResponses.set(nodeId, content);
-      trackUsage(usage);
-    }));
+    const initialGenerators = plan.selectedNodes.map((nodeId) => (async function* () {
+      let fullContent = '';
+      const stream = callModelStream(nodeId, `Task: Provide an initial expert response to the query: ${query}`, 0.7);
+      for await (const chunk of stream) {
+        if (chunk.type === 'chunk') {
+          fullContent += chunk.data;
+          yield { type: 'expert_chunk', data: { nodeId, content: chunk.data, step: 0 } };
+        } else if (chunk.type === 'usage') {
+          trackUsage(chunk.data, nodeId);
+        }
+      }
+      initialResponses.set(nodeId, fullContent);
+    })());
+
+    for await (const event of mergeStreams(initialGenerators)) {
+      yield event;
+    }
 
     // 3. Peer-to-Peer Relevance Scoring
     yield { type: 'status', data: 'Building adjacency graph...' };
@@ -133,7 +190,7 @@ export class Orchestrator {
             relevanceScoringPrompt.replace('{{query}}', query).replace('{{target_output}}', initialResponses.get(targetId)!),
             0.1
           );
-          trackUsage(usage);
+          trackUsage(usage, sourceId);
           const score = parseFloat(scoreStr) || 0;
           if (!scores.has(sourceId)) scores.set(sourceId, new Map());
           scores.get(sourceId)!.set(targetId, score);
@@ -147,7 +204,8 @@ export class Orchestrator {
     const skillAdj = EdgeConstructor.constructSkillEdges(plan.selectedNodes, registry, skillVector, taxonomy.map((t: any) => t.id));
     const hybridAdj = semanticAdj.map((row, i) => row.map((val, j) => 0.7 * val + 0.3 * skillAdj[i][j]));
     const { source, target } = GraphEngine.partitionNodes(plan.selectedNodes, hybridAdj);
-    yield { type: 'graph', data: { nodes: plan.selectedNodes, adjacency: hybridAdj } };
+    
+    yield { type: 'graph', data: { nodes: plan.selectedNodes, adjacency: hybridAdj, usage: nodeUsage } };
 
     // 5. Bidirectional Message Passing (with RMoA)
     yield { type: 'status', data: 'Performing iterative refinement...' };
@@ -160,8 +218,9 @@ export class Orchestrator {
       const refined = new Map<string, string>();
 
       // Forward Pass
-      await Promise.all(target.map(async (targetId) => {
-        const { content, usage } = await callModel(
+      const forwardGenerators = target.map((targetId) => (async function* () {
+        let fullContent = '';
+        const stream = callModelStream(
           targetId,
           forwardPassPrompt
             .replace('{{query}}', query)
@@ -169,14 +228,26 @@ export class Orchestrator {
             .replace('{{source_context}}', sourceContext),
           0.7
         );
-        refined.set(targetId, content);
-        trackUsage(usage);
-      }));
+        for await (const chunk of stream) {
+          if (chunk.type === 'chunk') {
+            fullContent += chunk.data;
+            yield { type: 'expert_chunk', data: { nodeId: targetId, content: chunk.data, step } };
+          } else if (chunk.type === 'usage') {
+            trackUsage(chunk.data, targetId);
+          }
+        }
+        refined.set(targetId, fullContent);
+      })());
+
+      for await (const event of mergeStreams(forwardGenerators)) {
+        yield event;
+      }
 
       // Reverse Pass
       const targetRefinements = target.map(id => `Refined Agent [${id}]: ${refined.get(id)}`).join('\n\n');
-      await Promise.all(source.map(async (sourceId) => {
-        const { content, usage } = await callModel(
+      const reverseGenerators = source.map((sourceId) => (async function* () {
+        let fullContent = '';
+        const stream = callModelStream(
           sourceId,
           reversePassPrompt
             .replace('{{query}}', query)
@@ -184,9 +255,20 @@ export class Orchestrator {
             .replace('{{target_refinements}}', targetRefinements),
           0.7
         );
-        refined.set(sourceId, content);
-        trackUsage(usage);
-      }));
+        for await (const chunk of stream) {
+          if (chunk.type === 'chunk') {
+            fullContent += chunk.data;
+            yield { type: 'expert_chunk', data: { nodeId: sourceId, content: chunk.data, step } };
+          } else if (chunk.type === 'usage') {
+            trackUsage(chunk.data, sourceId);
+          }
+        }
+        refined.set(sourceId, fullContent);
+      })());
+
+      for await (const event of mergeStreams(reverseGenerators)) {
+        yield event;
+      }
 
       const currentAggregate = [...refined.values()].join('\n');
       const haltDecision = await RMoA.checkConvergence(currentAggregate, previousAggregate, step);
@@ -196,6 +278,8 @@ export class Orchestrator {
       currentResponses = refined;
       previousAggregate = currentAggregate;
       finalRefinedResponses = refined;
+
+      yield { type: 'graph', data: { nodes: plan.selectedNodes, adjacency: hybridAdj, usage: nodeUsage } };
 
       if (haltDecision.shouldHalt) {
         logger.info({ haltReason: haltDecision.haltReason, step }, '[RMoA] Halting condition met.');

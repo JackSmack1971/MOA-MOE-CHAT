@@ -53,6 +53,12 @@
 - [ ] Task 3: Single Executable Application (SEA) Packaging.
 - [ ] Task 4: Postgres Sidecar Orchestration (Child Process).
 
+## Phase 10: UX Refinement & Knowledge Capital (Week 10)
+- [x] Task 1: Cleanup legacy artifacts (Counter.svelte).
+- [x] Task 2: Session portability (Copy Session, Export SVG/Markdown).
+- [x] Task 3: Observability Polish (Pulsing nodes, Skill tooltips).
+- [x] Task 4: UI Persistence (localStorage state recovery).
+
 ## Backlog
 - [ ] 999.1: Phase 8 - Symbolic-MoE Prototype (Dynamic edge construction via SymbolicSerializer).
 - [ ] 999.2: Scale GoA to $k=10$ expert models with hierarchical clustering.

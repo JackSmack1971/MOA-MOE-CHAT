@@ -2,10 +2,24 @@
   import { onMount } from 'svelte';
   import * as d3 from 'd3';
 
-  let { nodes = [], adjacency = [] } = $props();
+  let { nodes = [], adjacency = [], nodeUsage = {}, expertStreams = {} } = $props();
 
   let svg;
   let simulation;
+  let tooltip;
+
+  onMount(() => {
+    tooltip = d3.select("body").append("div")
+      .attr("class", "tooltip")
+      .style("position", "absolute")
+      .style("background", "#0a141e")
+      .style("border", "1px solid #00F2FF")
+      .style("padding", "8px")
+      .style("color", "#fff")
+      .style("font-size", "12px")
+      .style("pointer-events", "none")
+      .style("opacity", 0);
+  });
 
   $effect(() => {
     if (!svg || nodes.length === 0) return;
@@ -13,7 +27,7 @@
   });
 
   function updateGraph() {
-    const width = 372; // Adjusted for sidebar width
+    const width = 372;
     const height = 300;
 
     const svgElement = d3.select(svg);
@@ -22,13 +36,17 @@
     const links = [];
     adjacency.forEach((row, i) => {
       row.forEach((val, j) => {
-        if (val > 0.05) { // Lowered threshold for "Mechanical Transparency"
+        if (val > 0.05) {
           links.push({ source: nodes[i], target: nodes[j], value: val });
         }
       });
     });
 
-    const graphNodes = nodes.map(id => ({ id }));
+    const graphNodes = nodes.map(id => ({ 
+      id, 
+      usage: nodeUsage[id] || 0,
+      shortName: id.split('/').pop()
+    }));
 
     simulation = d3.forceSimulation(graphNodes)
       .force("link", d3.forceLink(links).id(d => d.id).distance(80))
@@ -39,7 +57,7 @@
       .selectAll("line")
       .data(links)
       .join("line")
-      .attr("stroke", "#00F2FF") // Command Cyan
+      .attr("stroke", "#00F2FF")
       .attr("stroke-opacity", d => Math.min(d.value + 0.2, 1))
       .attr("stroke-width", d => d.value * 4);
 
@@ -50,22 +68,43 @@
       .call(drag(simulation));
 
     nodeGroup.append("circle")
-      .attr("r", 12)
-      .attr("fill", "#FF00E5") // Logic Magenta
-      .attr("class", "expert-node")
-      .attr("stroke", "#000")
-      .attr("stroke-width", 2);
+      .attr("r", d => 10 + Math.min(d.usage / 500, 10))
+      .attr("stroke", d => expertStreams[d.id] ? "#00F0FF" : "#FF00E5")
+      .attr("stroke-width", d => expertStreams[d.id] ? 3 : 1)
+      .attr("stroke-dasharray", d => expertStreams[d.id] ? "none" : "2,1")
+      .attr("fill", "#0a141e")
+      .style("filter", d => {
+        const usageVal = nodeUsage[d.id] || 0;
+        const isLive = !!expertStreams[d.id];
+        if (isLive) return "drop-shadow(0 0 8px #00F0FF)";
+        if (usageVal > 0) return `drop-shadow(0 0 ${Math.min(usageVal / 500, 10)}px #FF00E5)`;
+        return "none";
+      })
+      .on("mouseover", (event, d) => {
+        const usageVal = nodeUsage[d.id] || 0;
+        const isLive = !!expertStreams[d.id];
+        tooltip.transition().duration(200).style("opacity", .9);
+        tooltip.html(`
+          <b>MODEL:</b> ${d.id}<br/>
+          <b>COMPUTE:</b> ${usageVal} TOKENS<br/>
+          <b>STATUS:</b> ${isLive ? 'STREAMING' : 'IDLE'}<br/>
+          <b>DOMAIN:</b> ${d.id.includes('llama') ? 'GENERAL' : 'SPECIFIC'}
+        `)
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 28) + "px");
+      })
+      .on("mouseout", () => {
+        tooltip.transition().duration(500).style("opacity", 0);
+      });
 
     nodeGroup.append("text")
-      .text(d => d.id.split('/').pop()) // Show model name only
+      .text(d => d.shortName)
       .attr("x", 16)
       .attr("y", 4)
       .attr("fill", "var(--text-dim)")
       .attr("font-size", "10px")
       .attr("font-weight", "800")
       .attr("font-family", "JetBrains Mono, monospace");
-
-    nodeGroup.append("title").text(d => d.id);
 
     simulation.on("tick", () => {
       link

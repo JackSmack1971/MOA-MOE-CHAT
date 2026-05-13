@@ -2,13 +2,15 @@
   import { onMount } from 'svelte';
   import * as d3 from 'd3';
   import Graph from './Graph.svelte';
+  import ExpertWorkbench from './ExpertWorkbench.svelte';
 
   let query = $state('');
   let messages = $state([]);
   let status = $state('IDLE');
   let skills = $state('');
   let usage = $state({ prompt: 0, completion: 0, total: 0 });
-  let graphData = $state({ nodes: [], adjacency: [] });
+  let graphData = $state({ nodes: [], adjacency: [], usage: {} });
+  let expertStreams = $state({});
 
   async function sendChat() {
     if (!query.trim()) return;
@@ -53,6 +55,9 @@
             usage = data;
           } else if (type === 'graph') {
             graphData = data;
+          } else if (type === 'expert_chunk') {
+            const { nodeId, content } = data;
+            expertStreams[nodeId] = (expertStreams[nodeId] || '') + content;
           } else if (type === 'final') {
             lastMsg.content = data;
           }
@@ -62,6 +67,68 @@
       }
     }
     status = 'IDLE';
+  }
+
+  onMount(() => {
+    const saved = localStorage.getItem('moa_console_state');
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        messages = state.messages || [];
+        graphData = state.graphData || { nodes: [], adjacency: [] };
+        usage = state.usage || { prompt: 0, completion: 0, total: 0 };
+        skills = state.skills || '';
+      } catch (e) {
+        console.error('Failed to restore state', e);
+      }
+    }
+  });
+
+  $effect(() => {
+    localStorage.setItem('moa_console_state', JSON.stringify({
+      messages,
+      graphData,
+      usage,
+      skills
+    }));
+  });
+
+  function copySession() {
+    const content = messages.map(m => `[${m.timestamp}] ${m.role.toUpperCase()}:\n${m.content}`).join('\n\n---\n\n');
+    navigator.clipboard.writeText(content);
+  }
+
+  function exportMarkdown() {
+    const content = messages.map(m => `### ${m.role.toUpperCase()} [${m.timestamp}]\n\n${m.content}`).join('\n\n---\n\n');
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `moa-session-${new Date().toISOString().slice(0,10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportSVG() {
+    const svg = document.querySelector('.graph-wrapper svg');
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const source = serializer.serializeToString(svg);
+    const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `topology-${new Date().toISOString().slice(0,10)}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function clearLog() {
+    messages = [];
+    usage = { prompt: 0, completion: 0, total: 0 };
+    skills = '';
+    graphData = { nodes: [], adjacency: [], usage: {} };
+    expertStreams = {};
   }
 </script>
 
@@ -94,7 +161,7 @@
         <h2>AGENT_TOPOLOGY</h2>
       </header>
       <div class="content graph-wrapper">
-        <Graph nodes={graphData.nodes} adjacency={graphData.adjacency} />
+        <Graph nodes={graphData.nodes} adjacency={graphData.adjacency} nodeUsage={graphData.usage} expertStreams={expertStreams} />
       </div>
     </section>
 
@@ -102,27 +169,31 @@
     <section class="quadrant q-telemetry">
       <header>
         <span class="tag">02</span>
-        <h2>SYSTEM_TELEMETRY</h2>
+        <h2>{status === 'IDLE' ? 'SYSTEM_TELEMETRY' : 'EXPERT_WORKBENCH'}</h2>
       </header>
       <div class="content telemetry-deck">
-        <div class="stat-row">
-          <label>TOTAL_COMPUTE</label>
-          <div class="data-box">{usage.total} TOKENS</div>
-        </div>
-        <div class="stat-row">
-          <label>ACTIVE_SKILLS</label>
-          <div class="data-box skills">{skills || 'INITIALIZING...'}</div>
-        </div>
-        <div class="usage-bars">
-          <div class="bar-group">
-            <label>PROMPT</label>
-            <div class="bar-bg"><div class="bar prompt" style="width: {Math.min((usage.prompt / 5000) * 100, 100)}%"></div></div>
+        {#if status === 'IDLE'}
+          <div class="stat-row">
+            <label>TOTAL_COMPUTE</label>
+            <div class="data-box">{usage.total} TOKENS</div>
           </div>
-          <div class="bar-group">
-            <label>COMPLETION</label>
-            <div class="bar-bg"><div class="bar comp" style="width: {Math.min((usage.completion / 5000) * 100, 100)}%"></div></div>
+          <div class="stat-row">
+            <label>ACTIVE_SKILLS</label>
+            <div class="data-box skills">{skills || 'INITIALIZING...'}</div>
           </div>
-        </div>
+          <div class="usage-bars">
+            <div class="bar-group">
+              <label>PROMPT</label>
+              <div class="bar-bg"><div class="bar prompt" style="width: {Math.min((usage.prompt / 5000) * 100, 100)}%"></div></div>
+            </div>
+            <div class="bar-group">
+              <label>COMPLETION</label>
+              <div class="bar-bg"><div class="bar comp" style="width: {Math.min((usage.completion / 5000) * 100, 100)}%"></div></div>
+            </div>
+          </div>
+        {:else}
+          <ExpertWorkbench streams={expertStreams} activeNodes={graphData.nodes} />
+        {/if}
       </div>
     </section>
 
@@ -132,7 +203,10 @@
         <span class="tag">03</span>
         <h2>DATA_STREAM</h2>
         <div class="controls">
-          <button class="btn-icon">CLEAR_LOG</button>
+          <button class="btn-icon" onclick={copySession} title="COPY_ALL">COPY_SESSION</button>
+          <button class="btn-icon" onclick={exportMarkdown} title="EXPORT_MD">MD</button>
+          <button class="btn-icon" onclick={exportSVG} title="EXPORT_SVG">SVG</button>
+          <button class="btn-icon" onclick={clearLog} title="CLEAR">CLEAR_LOG</button>
         </div>
       </header>
       <div class="content stream-container">
@@ -413,6 +487,31 @@
   .copy-btn:hover {
     border-color: var(--magenta);
     color: var(--magenta);
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .btn-icon {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .btn-icon:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(0, 242, 255, 0.05);
   }
 
   .body {
